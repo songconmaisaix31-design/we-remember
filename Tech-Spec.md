@@ -133,3 +133,39 @@ Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome 
 Also verify the Agent, family schedule, family and notifications, and connection-center destinations at 1440×1000, 820×1180, and 390×844. Confirmation must update schedule counts and notification receipts across views, filters must expose their selected state, and every mobile primary action must remain reachable above the fixed navigation.
 
 Also verify direct Agent entry, the absence of onboarding controls, all 12 retained static SVG assets, the absence of transition SVGs, reduced motion, and the absence of work-workspace controls.
+
+## Responsibility ownership P0 architecture
+
+P0 preserves the dependency-free application and adds two isolated modules before integration:
+
+- `modules/responsibility/`: pure deterministic contracts, state transitions, reminder routing, privacy projections, fixture state, and tests.
+- `app/responsibility-ui/`: presentation-only responsibility map and suggestion/handover cards. Components receive safe view models and callbacks; they do not decide permission, consent, ownership, or reminder routing.
+- `app/app.js`: remains the single demo state owner after the integration track wires the public module interfaces into the existing shell.
+
+The responsibility module exposes immutable commands. A successful handover acceptance constructs one next-state snapshot containing the updated domain, inherited open todos, pending reminders, handover, notice, and audit record, then replaces the fixture state once. This gives the static demo deterministic all-or-nothing semantics. A production implementation must execute the same invariant inside one durable database transaction with optimistic version checks and idempotency.
+
+```text
+private input -> schema-validated suggestion -> human-reviewed proposal
+  -> pending_info -> pending_ack -> accepted
+                                      |
+                                      +-> declined | expired
+
+accepted -> domain owner + inherited future todos + pending reminders + audit
+```
+
+### Deterministic invariants
+
+- `accountableOwnerId` resolves to a human family member; Agent identities are rejected.
+- Owner changes only through `accepted` and only when domain and handover versions match.
+- Editing a proposal increments its version and invalidates earlier acknowledgement.
+- Domain-owned open todos inherit a new owner; explicitly assigned collaboration todos retain their assignee.
+- Reminder recipients are derived from source semantics. There is no independent default-recipient field.
+- Completed todos have no active reminder; cancelled or terminal handovers have no acknowledgement reminder.
+- Family projections contain only consented evidence and safe audit metadata. Raw private text is never copied into shared state.
+- AI output enters as `unknown`, is validated against a closed-world schema, retries once, and then returns `manual_required` with no mutation.
+
+The demo perspectives are presentation projections for mother, father, and grandmother. They are not authorization evidence. Production authorization continues to require a server-resolved actor and family membership.
+
+### Integration ownership
+
+Core and UI tracks own only their new directories. Only the integration track may change `app/index.html`, `app/app.js`, `app/styles.css`, primary navigation, cross-track imports, structural/browser tests, and delivery documentation. Existing card, dialog, avatar, focus, surface, responsive, and reduced-motion primitives must be reused without introducing a framework, dependency, router, or parallel design system.

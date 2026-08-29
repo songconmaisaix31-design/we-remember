@@ -118,3 +118,26 @@ The interaction language references the public `davidwang.space` experience as i
 - persistent media feedback for an active state.
 
 The product uses its own palette, assets, hierarchy, and copy. It does not copy the reference site's background imagery, content, or branding.
+
+## Responsibility ownership P0
+
+The product is a family responsibility ownership and handover system. A calendar event answers when something happens, a todo answers what happens next, and a responsibility domain names the one human who remains accountable for discovering, planning, executing, and following through on the whole matter. An Agent may perform explicitly allowed subtasks but can never be the accountable owner for offline care, health, or safety.
+
+P0 adds a responsibility map as the primary responsibility view while preserving the conversation-first schedule experience. Event confirmation shows its responsibility domain, accountable owner, helpers, and informed people. The conversation may produce a reviewable responsibility suggestion and a handover proposal; neither changes ownership before deterministic validation and the proposed owner explicitly accepts.
+
+### P0 acceptance criteria
+
+- Each `ResponsibilityDomain` has exactly one human `accountableOwnerId` and clearly states included and excluded scope.
+- A handover follows `draft -> pending_info | pending_ack -> accepted | declined | expired`.
+- Missing information, missing acknowledgement, decline, and expiry leave the owner unchanged.
+- Acceptance atomically changes the owner, migrates incomplete domain-owned future todo reminders, closes handover reminders, and appends a privacy-safe audit entry.
+- Event reminders target participants, todo reminders target assignees, domain reviews target the accountable owner, and handover reminders target the current confirmer.
+- Completing a todo stops its reminder. Explicitly assigned collaborator todos do not migrate with domain ownership.
+- Evidence is private by default. Only consented, shareable facts enter the family projection; private expression never appears in the family view or audit log.
+- The demo supports mother, father, and grandmother perspectives and clearly labels perspective switching as a demo, not authentication.
+- The golden flow covers a private message from mother about grandmother's follow-up burden, fact/emotion/request separation, a proposal to father, `pending_info`, `pending_ack`, acceptance, owner and reminder migration, the old-owner notice, responsibility-map refresh, and audit-log refresh.
+- All Agent structured output is schema-validated. One failed validation may be retried once; a second failure falls back to manual confirmation without domain mutation.
+
+### P0 exclusions
+
+Image, screenshot, PDF, email, external-calendar, SMS, recurring-todo, connector, production authentication, database, and real provider delivery work remain outside P0. The physical-robot and channel-gateway modules stay unchanged. P1 cannot start until this P0 path passes its deterministic and browser checks.

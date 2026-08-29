@@ -208,3 +208,124 @@ v1\n{unixTimestamp}\n{nonce}\n{method}\n{path}\n{lowercaseSha256HexOfBody}
 - QR login and channel credentials remain in the OpenClaw state directory; the product stores only an opaque installation reference and revocable bindings.
 - A ClawBot sender must complete the same short-lived product pairing flow as every other external identity.
 - The adapter cannot read historical chats, infer membership, or elevate a sender into an internal role.
+
+## Responsibility ownership contract (P0)
+
+These interfaces are the single source of truth for the dependency-free P0 module. Production transport may wrap them, but it must preserve their state and authorization invariants.
+
+```ts
+type MemberKind = "human" | "agent";
+type DomainStatus = "active" | "paused" | "completed";
+type Visibility = "private" | "family";
+type HandoverStatus =
+  | "draft"
+  | "pending_info"
+  | "pending_ack"
+  | "accepted"
+  | "declined"
+  | "expired";
+
+interface ResponsibilityDomain {
+  id: string;
+  familyId: string;
+  title: string;
+  accountableOwnerId: string;
+  status: DomainStatus;
+  scopeIncluded: string[];
+  scopeExcluded: string[];
+  nextActionId: string | null;
+  visibility: Visibility;
+  evidenceIds: string[];
+  version: number;
+}
+
+interface FamilyEvent {
+  id: string;
+  familyId: string;
+  title: string;
+  startsAt: string;
+  participantIds: string[];
+  supportMemberIds: string[];
+  informedMemberIds: string[];
+  domainId: string | null;
+}
+
+interface Todo {
+  id: string;
+  familyId: string;
+  title: string;
+  domainId: string | null;
+  assigneeId: string;
+  assignmentBasis: "domain_owner" | "explicit";
+  dueAt: string | null;
+  status: "open" | "completed" | "cancelled";
+  version: number;
+}
+
+interface Handover {
+  id: string;
+  familyId: string;
+  domainId: string;
+  fromOwnerId: string;
+  proposedOwnerId: string;
+  status: HandoverStatus;
+  missingFields: string[];
+  confirmationRequiredFromId: string | null;
+  acknowledgements: Array<{ memberId: string; handoverVersion: number; acknowledgedAt: string }>;
+  expectedDomainVersion: number;
+  expiresAt: string | null;
+  version: number;
+}
+
+interface Evidence {
+  id: string;
+  familyId: string;
+  subjectMemberId: string;
+  createdByMemberId: string;
+  kind: "shareable_fact" | "private_expression" | "responsibility_request";
+  visibility: Visibility;
+  content: string;
+  version: number;
+}
+
+interface Consent {
+  id: string;
+  evidenceId: string;
+  subjectMemberId: string;
+  grantedVisibility: "family";
+  status: "granted" | "revoked";
+  version: number;
+}
+
+interface ReminderPlan {
+  id: string;
+  sourceType: "event" | "todo" | "domain_review" | "handover";
+  sourceId: string;
+  sourceVersion: number;
+  routingBasis: "event_participant" | "todo_assignee" | "domain_owner" | "handover_confirmer";
+  recipientId: string;
+  status: "pending" | "cancelled" | "completed";
+}
+
+interface AuditLogEntry {
+  id: string;
+  familyId: string;
+  actorId: string;
+  action: string;
+  entityType: "responsibility_domain" | "handover" | "todo" | "reminder" | "evidence";
+  entityId: string;
+  occurredAt: string;
+  metadata: Record<string, string | number | boolean | null>;
+}
+```
+
+### Command results
+
+- `suggestResponsibility(input)`: returns a schema-validated suggestion or `manual_required`; it never mutates ownership.
+- `submitHandover(command)`: moves a draft to `pending_info` or `pending_ack` after deterministic completeness and permission checks.
+- `reviseHandover(command)`: increments `version`, clears stale acknowledgements, and recomputes the pending state.
+- `decideHandover(command)`: only the current confirmer may accept or decline. Acceptance requires matching expected versions and returns one immutable next-state snapshot.
+- `expireHandover(command)`: closes an overdue pending handover without changing the owner.
+- `completeTodo(command)`: completes the todo and cancels its active reminder plans.
+
+All mutating commands require a server-resolved actor, family scope, expected entity version, and idempotency key in production. Validation, consent, permission, transition, conflict, timeout, owner update, reminder routing, and audit are deterministic program responsibilities, never model decisions.
