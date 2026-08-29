@@ -255,6 +255,29 @@ async function exerciseFilter(selector, label) {
   return result;
 }
 
+async function exerciseSelect(selector, label) {
+  const result = JSON.parse(await evaluate(`(() => {
+    const control = document.querySelector(${JSON.stringify(selector)});
+    const options = [...control.options].filter(option => !option.disabled);
+    const initialValue = control.value;
+    const initialRows = document.querySelector('#schedule-event-list').children.length;
+    const target = options.find(option => option.value !== initialValue);
+    control.value = target?.value ?? initialValue;
+    control.dispatchEvent(new Event('change', { bubbles: true }));
+    return JSON.stringify({
+      options: options.length,
+      initialValue,
+      selectedValue: control.value,
+      selectedLabel: control.selectedOptions[0]?.textContent.trim() ?? '',
+      rowsChanged: document.querySelector('#schedule-event-list').children.length !== initialRows
+    });
+  })()`));
+  if (result.options < 2 || result.selectedValue === result.initialValue || !result.selectedLabel || !result.rowsChanged) {
+    throw new Error(`${label} selection semantics failed: ${JSON.stringify(result)}`);
+  }
+  return result;
+}
+
 if (scenario === "identity") {
   await evaluate("sessionStorage.removeItem('we-remember-demo-session-v2'); true");
   await send("Page.navigate", { url });
@@ -377,7 +400,7 @@ if (scenario === "schedule" || scenario === "people") {
   if (!scheduleSync.confirmedEventVisible || scheduleSync.createActions < 1) {
     throw new Error(`Schedule shared state failed: ${JSON.stringify(scheduleSync)}`);
   }
-  const dayFilter = await exerciseFilter("#schedule-day-filter button", "Schedule day filter");
+  const dayFilter = await exerciseSelect("#schedule-day-filter", "Schedule day filter");
   const memberFilter = await exerciseFilter("[data-member-filter]", "Schedule member filter");
   const scheduleLayout = await assertResponsiveLayout("#schedule-view [data-create-with-agent]");
 
@@ -404,6 +427,7 @@ if (scenario === "schedule" || scenario === "people") {
   const agentReturn = await assertViewState("agent");
   await openView(scenario);
   await assertViewState(scenario);
+  await new Promise((resolve) => setTimeout(resolve, 2400));
 
   await captureResult({
     synchronization,
