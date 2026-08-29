@@ -34,8 +34,10 @@ function validConsent(value) {
     && (value.status === "granted" || value.status === "revoked") && isVersion(value.version);
 }
 
-function validMember(value) {
-  return isRecord(value) && isText(value.id) && isText(value.familyId) && value.status === "active";
+function validHumanViewer(value) {
+  return isRecord(value) && isText(value.id) && isText(value.familyId) && isText(value.displayName)
+    && value.kind === "human" && isVersion(value.version)
+    && (value.status === undefined || value.status === "active");
 }
 
 function safeEvidence(evidence) {
@@ -94,14 +96,16 @@ export function projectAudit(audit, familyId) {
   }));
 }
 
-/** Role is presentation metadata; active family membership, not role, defines this projection boundary. */
+/** Human family membership defines this projection boundary; role is presentation metadata only. */
 export function projectResponsibilityState(state, activeMemberId) {
   if (!isRecord(state) || !Array.isArray(state.members) || !isText(activeMemberId)) return fail("viewer_unauthorized");
-  const viewer = state.members.find((member) => validMember(member) && member.id === activeMemberId);
+  const viewer = state.members.find((member) => validHumanViewer(member) && member.id === activeMemberId);
   if (!viewer) return fail("viewer_unauthorized");
+  const presentationRole = isText(viewer.role) ? viewer.role : viewer.id;
   const evidence = Array.isArray(state.evidence) ? state.evidence.filter(validEvidence) : [];
   const consents = Array.isArray(state.consents) ? state.consents.filter(validConsent) : [];
   const privateEvidence = evidence.filter((item) => item.familyId === viewer.familyId && (item.subjectMemberId === viewer.id || item.createdByMemberId === viewer.id)).map(safeEvidence);
   const familyEvidence = evidence.filter((item) => item.familyId === viewer.familyId && item.kind === "shareable_fact" && hasGrantedConsent(item, consents)).map(safeEvidence);
-  return freeze({ ok: true, projection: { viewer: { id: viewer.id, role: isText(viewer.role) ? viewer.role : "member" }, privateEvidence, familyEvidence, audit: projectAudit(state.audit, viewer.familyId) } });
+  const audit = Object.hasOwn(state, "auditLog") ? state.auditLog : state.audit;
+  return freeze({ ok: true, projection: { viewer: { id: viewer.id, role: presentationRole }, privateEvidence, familyEvidence, audit: projectAudit(audit, viewer.familyId) } });
 }

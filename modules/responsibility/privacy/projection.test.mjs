@@ -5,11 +5,21 @@ import { createEvidence, grantFamilyConsent, projectAudit, projectResponsibility
 const secret = "FORBIDDEN_PRIVATE_SENTINEL";
 const evidenceKeys = ["content", "createdByMemberId", "familyId", "id", "kind", "subjectMemberId", "version", "visibility"];
 const consentKeys = ["evidenceId", "grantedVisibility", "id", "status", "subjectMemberId", "version"];
+const memberKeys = ["displayName", "familyId", "id", "kind", "version"];
 const evidence = (kind = "shareable_fact", id = "evidence-1") => ({ id, familyId: "family-a", subjectMemberId: "mother", createdByMemberId: "mother", kind, content: kind === "shareable_fact" ? "Grandmother has a follow-up visit" : secret, version: 1 });
 const consent = (status = "granted", id = "consent-1") => ({ id, evidenceId: "evidence-1", subjectMemberId: "mother", grantedVisibility: "family", status, version: 1 });
-const state = (items, consents = []) => ({
-  members: [{ id: "mother", familyId: "family-a", role: "mother", status: "active" }, { id: "father", familyId: "family-a", role: "father", status: "active" }, { id: "grandmother", familyId: "family-a", role: "grandmother", status: "active" }, { id: "outsider", familyId: "family-b", role: "father", status: "active" }], evidence: items, consents,
-  audit: [{ id: "audit-1", familyId: "family-a", actorId: "mother", action: "handover.accepted", entityType: "handover", entityId: "handover-1", occurredAt: "2026-08-30T00:00:00.000Z", metadata: { domainId: "domain-1", proposedOwnerId: "father", status: "accepted", version: 2, domainVersion: 3, previousDomainVersion: 2, nested: { content: secret }, rawText: secret, prompt: secret } }],
+const member = (id, familyId = "family-a", kind = "human") => Object.freeze({ id, familyId, displayName: id[0].toUpperCase() + id.slice(1), kind, version: 1 });
+const acceptedMetadata = Object.freeze({ handoverId: "handover-1", domainId: "domain-1", fromOwnerId: "mother", proposedOwnerId: "father", status: "accepted", previousDomainVersion: 2, domainVersion: 3, handoverVersion: 5 });
+const acceptedAudit = Object.freeze({
+  id: "audit:handover-1:5", familyId: "family-a", actorId: "father", action: "handover.accepted", entityType: "handover", entityId: "handover-1", occurredAt: "2026-08-30T00:00:00.000Z",
+  metadata: { ...acceptedMetadata, nested: { content: secret }, rawText: secret, prompt: secret },
+});
+const state = (items, consents = [], overrides = {}) => ({
+  members: [member("mother"), member("father"), member("grandmother"), member("agent", "family-a", "agent"), member("outsider", "family-b")],
+  evidence: items,
+  consents,
+  auditLog: [acceptedAudit],
+  ...overrides,
 });
 
 test("Evidence is exact-contract and private by default; Consent is separate", () => {
@@ -38,16 +48,39 @@ test("revoked and malformed consent fail closed", () => {
   assert.equal(projectResponsibilityState(state([fact], [consent(), { ...consent("revoked", "consent-2"), version: 2 }]), "father").projection.familyEvidence.length, 0);
 });
 
-test("mother, father, grandmother projections retain roles only as presentation metadata", () => {
+test("exact-contract human Members support mother, father, and grandmother perspectives", () => {
   const snapshot = state([createEvidence(evidence()).evidence], [consent()]);
-  for (const [id, role] of [["mother", "mother"], ["father", "father"], ["grandmother", "grandmother"]]) assert.equal(projectResponsibilityState(snapshot, id).projection.viewer.role, role);
-  assert.equal(projectResponsibilityState(snapshot, "outsider").projection.familyEvidence.length, 0);
+  for (const id of ["mother", "father", "grandmother"]) {
+    assert.deepEqual(Object.keys(snapshot.members.find((item) => item.id === id)).sort(), memberKeys);
+    const result = projectResponsibilityState(snapshot, id);
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.projection.viewer, { id, role: id });
+    assert.equal(result.projection.privateEvidence.length, id === "mother" ? 1 : 0);
+    assert.equal(result.projection.familyEvidence.length, 1);
+  }
+  const outsider = projectResponsibilityState(snapshot, "outsider").projection;
+  assert.deepEqual(outsider.privateEvidence, []);
+  assert.deepEqual(outsider.familyEvidence, []);
+  assert.deepEqual(outsider.audit, []);
 });
 
-test("audit uses exact fields and its metadata is a scalar closed allowlist without sentinel leaks", () => {
-  const projection = projectResponsibilityState(state([createEvidence(evidence()).evidence], [consent()]), "father").projection;
-  const audit = projectAudit(state([], []).audit, "family-a");
+test("agent and inactive runtime viewers are rejected; active optional role is presentation-only", () => {
+  const snapshot = state([], [], { members: [member("agent", "family-a", "agent"), { ...member("inactive"), role: "mother", status: "inactive" }, { ...member("active-viewer"), role: "father", status: "active" }] });
+  assert.equal(projectResponsibilityState(snapshot, "agent").error.code, "viewer_unauthorized");
+  assert.equal(projectResponsibilityState(snapshot, "inactive").error.code, "viewer_unauthorized");
+  assert.deepEqual(projectResponsibilityState(snapshot, "active-viewer").projection.viewer, { id: "active-viewer", role: "father" });
+});
+
+test("auditLog wins over legacy audit and exposes only safe acceptance metadata", () => {
+  const snapshot = state([createEvidence(evidence()).evidence], [consent()], { audit: [{ ...acceptedAudit, id: "legacy-audit" }] });
+  const projection = projectResponsibilityState(snapshot, "father").projection;
+  const audit = projectAudit(snapshot.auditLog, "family-a");
   assert.deepEqual(Object.keys(audit[0]).sort(), ["action", "actorId", "entityId", "entityType", "familyId", "id", "metadata", "occurredAt"]);
-  assert.deepEqual(audit[0].metadata, { domainId: "domain-1", proposedOwnerId: "father", status: "accepted", version: 2, domainVersion: 3, previousDomainVersion: 2 }); assert.equal(JSON.stringify(projection).includes(secret), false); assert.equal(JSON.stringify(audit).includes(secret), false); assert.throws(() => { audit[0].metadata.status = "changed"; }, TypeError);
+  assert.deepEqual(audit[0].metadata, acceptedMetadata);
+  assert.deepEqual(projection.audit, audit);
+  assert.equal(projection.audit[0].id, "audit:handover-1:5");
+  assert.equal(JSON.stringify(projection).includes(secret), false);
+  assert.equal(JSON.stringify(audit).includes(secret), false);
+  assert.throws(() => { audit[0].metadata.status = "changed"; }, TypeError);
   assert.throws(() => { projection.familyEvidence.push({}); }, TypeError);
 });
