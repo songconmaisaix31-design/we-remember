@@ -183,6 +183,7 @@ const asArray = (value) => Array.isArray(value) ? value : [];
 function hasCurrentFamilyConsent(evidence, consents) {
   const matching = asArray(consents).filter((consent) => consent?.evidenceId === evidence.id
     && consent?.subjectMemberId === evidence.subjectMemberId
+    && consent?.grantedVisibility === "family"
     && Number.isSafeInteger(consent?.version)
     && consent.version > 0);
   if (matching.length === 0) return false;

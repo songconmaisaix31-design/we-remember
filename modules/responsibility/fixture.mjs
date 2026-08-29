@@ -325,28 +325,9 @@ export function createResponsibilityPorts({ provider } = {}) {
     completeTodo: (state, command) => commandResultForStore(
       completeFixtureTodo(state, command),
     ),
-    projectForActor: (state, request) => {
-      const actor = resolveUniqueMember(state, request?.actorId);
-      if (!actor
-        || actor.familyId !== request?.familyId
-        || actor.kind !== "human"
-        || !isActiveMember(actor)
-        || (state?.familyId !== undefined && state.familyId !== request.familyId)) {
-        return { ok: false, error: { code: "viewer_unauthorized" } };
-      }
-      const familyState = {
-        ...state,
-        members: state.members.filter((member) => member?.familyId === request.familyId),
-      };
-      const result = projectResponsibilityState(familyState, request.actorId);
-      if (!result.ok) return result;
-      return freezeDeep({
-        ...result,
-        projection: {
-          ...result.projection,
-          responsibility: createPerspectiveFacts(state, request.actorId),
-        },
-      });
-    },
+    projectForActor: (state, request) => projectResponsibilityState(state, {
+      actorId: request?.actorId,
+      familyId: request?.familyId,
+    }),
   });
 }

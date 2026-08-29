@@ -181,15 +181,22 @@ test("runs the golden flow through the real Store and Service factories", async 
   assert.equal(JSON.stringify(fatherView).includes(PRIVATE_EXPRESSION), false);
   for (const view of [motherView, fatherView, grandmotherView]) {
     assert.equal(view.ok, true);
-    assert.equal(view.projection.responsibility.accountableOwnerId, "father");
-    assert.equal(view.projection.responsibility.domainTodoAssigneeId, "father");
-    assert.equal(view.projection.responsibility.reminderRecipientId, "father");
-    assert.equal(view.projection.responsibility.handoverStatus, "accepted");
-    assert.equal(view.projection.responsibility.handoverReminderStatus, "completed");
+    assert.equal(findById(view.projection.domains, DOMAIN_ID).accountableOwnerId, "father");
+    assert.equal(findById(view.projection.todos, DOMAIN_TODO_ID).assigneeId, "father");
+    assert.equal(findById(view.projection.handovers, HANDOVER_ID).status, "accepted");
   }
-  assert.equal(motherView.projection.responsibility.oldOwnerNoticeIds.length, 1);
-  assert.deepEqual(fatherView.projection.responsibility.oldOwnerNoticeIds, []);
-  assert.deepEqual(grandmotherView.projection.responsibility.oldOwnerNoticeIds, []);
+  assert.equal(motherView.projection.notices.length, 1);
+  assert.deepEqual(fatherView.projection.notices, []);
+  assert.deepEqual(grandmotherView.projection.notices, []);
+  assert.deepEqual(motherView.projection.reminders, []);
+  assert.equal(
+    fatherView.projection.reminders.find((item) => item.sourceId === DOMAIN_TODO_ID).status,
+    "pending",
+  );
+  assert.equal(
+    fatherView.projection.reminders.find((item) => item.sourceId === HANDOVER_ID).status,
+    "completed",
+  );
 
   const completed = await service.completeTodo(father, {
     todoId: DOMAIN_TODO_ID,
@@ -396,6 +403,26 @@ test("fails closed before pending_ack for non-unique or non-human proposed owner
     assert.equal(store.currentRevision(), 0, invalidCase.label);
     assert.equal(findById(store.readSnapshot().domains, DOMAIN_ID).accountableOwnerId, "mother");
   }
+
+  const reviseHarness = createHarness();
+  await reviseHarness.service.submit(mother, {
+    handoverId: HANDOVER_ID,
+    expectedVersion: 1,
+    idempotencyKey: "invalid-owner-revise-submit",
+  });
+  const invalidRevision = await reviseHarness.service.revise(mother, {
+    handoverId: HANDOVER_ID,
+    expectedVersion: 2,
+    patch: { proposedOwnerId: "agent", missingFields: [] },
+    idempotencyKey: "invalid-owner-revise-agent",
+  });
+  assert.equal(invalidRevision.ok, false);
+  assert.equal(invalidRevision.error.code, "permission_denied");
+  assert.equal(reviseHarness.store.currentRevision(), 1);
+  assert.equal(
+    findById(reviseHarness.store.readSnapshot().handovers, HANDOVER_ID).status,
+    "pending_info",
+  );
 
   const incompleteState = structuredClone(consentedFixture());
   incompleteState.handovers[0].proposedOwnerId = "";

@@ -257,3 +257,57 @@ test("private burden text stays only in private_expression and never enters fami
     fixture.evidence.find((item) => item.kind === "shareable_fact").id,
   ]);
 });
+
+test("perspective helpers derive accepted ownership from the live snapshot", () => {
+  const state = createGoldenResponsibilityFixture();
+  state.domains[0].accountableOwnerId = "father";
+  state.domains[0].version = 2;
+  state.todos[0].assigneeId = "father";
+  state.todos[0].version = 2;
+  state.handovers[0].status = "accepted";
+  state.handovers[0].confirmationRequiredFromId = null;
+  state.handovers[0].version = 4;
+  state.reminders = [
+    {
+      id: "todo:todo-confirm-follow-up-logistics:father:2",
+      sourceType: "todo",
+      sourceId: "todo-confirm-follow-up-logistics",
+      sourceVersion: 2,
+      routingBasis: "todo_assignee",
+      recipientId: "father",
+      status: "pending",
+    },
+    {
+      id: "handover:handover-grandmother-follow-up-to-father:father:3",
+      sourceType: "handover",
+      sourceId: "handover-grandmother-follow-up-to-father",
+      sourceVersion: 4,
+      routingBasis: "handover_confirmer",
+      recipientId: "father",
+      status: "completed",
+    },
+  ];
+  state.notices = [{
+    id: "notice:handover-grandmother-follow-up-to-father:4",
+    familyId: "family-willow",
+    recipientId: "mother",
+    type: "handover_accepted",
+    handoverId: "handover-grandmother-follow-up-to-father",
+    domainId: "domain-grandmother-follow-up",
+    createdAt: "2030-04-10T00:00:00.000Z",
+  }];
+
+  const mother = createMotherPerspectiveFacts(state);
+  const father = createFatherPerspectiveFacts(state);
+  const grandmother = createGrandmotherPerspectiveFacts(state);
+  for (const perspective of [mother, father, grandmother]) {
+    assert.equal(perspective.accountableOwnerId, "father");
+    assert.equal(perspective.domainTodoAssigneeId, "father");
+    assert.equal(perspective.reminderRecipientId, "father");
+    assert.equal(perspective.handoverStatus, "accepted");
+    assert.equal(perspective.handoverReminderStatus, "completed");
+  }
+  assert.equal(mother.oldOwnerNoticeIds.length, 1);
+  assert.deepEqual(father.oldOwnerNoticeIds, []);
+  assert.deepEqual(grandmother.oldOwnerNoticeIds, []);
+});
