@@ -9,7 +9,7 @@ const evidence = (kind = "shareable_fact", id = "evidence-1") => ({ id, familyId
 const consent = (status = "granted", id = "consent-1") => ({ id, evidenceId: "evidence-1", subjectMemberId: "mother", grantedVisibility: "family", status, version: 1 });
 const state = (items, consents = []) => ({
   members: [{ id: "mother", familyId: "family-a", role: "mother", status: "active" }, { id: "father", familyId: "family-a", role: "father", status: "active" }, { id: "grandmother", familyId: "family-a", role: "grandmother", status: "active" }, { id: "outsider", familyId: "family-b", role: "father", status: "active" }], evidence: items, consents,
-  audit: [{ id: "audit-1", familyId: "family-a", actorId: "mother", action: "handover.accepted", entityType: "handover", entityId: "handover-1", occurredAt: "2026-08-30T00:00:00.000Z", metadata: { domainId: "domain-1", status: "accepted", version: 2, nested: { content: secret }, rawText: secret, prompt: secret } }],
+  audit: [{ id: "audit-1", familyId: "family-a", actorId: "mother", action: "handover.accepted", entityType: "handover", entityId: "handover-1", occurredAt: "2026-08-30T00:00:00.000Z", metadata: { domainId: "domain-1", proposedOwnerId: "father", status: "accepted", version: 2, domainVersion: 3, previousDomainVersion: 2, nested: { content: secret }, rawText: secret, prompt: secret } }],
 });
 
 test("Evidence is exact-contract and private by default; Consent is separate", () => {
@@ -48,6 +48,6 @@ test("audit uses exact fields and its metadata is a scalar closed allowlist with
   const projection = projectResponsibilityState(state([createEvidence(evidence()).evidence], [consent()]), "father").projection;
   const audit = projectAudit(state([], []).audit, "family-a");
   assert.deepEqual(Object.keys(audit[0]).sort(), ["action", "actorId", "entityId", "entityType", "familyId", "id", "metadata", "occurredAt"]);
-  assert.deepEqual(audit[0].metadata, { domainId: "domain-1", status: "accepted", version: 2 }); assert.equal(JSON.stringify(projection).includes(secret), false); assert.equal(JSON.stringify(audit).includes(secret), false); assert.throws(() => { audit[0].metadata.status = "changed"; }, TypeError);
+  assert.deepEqual(audit[0].metadata, { domainId: "domain-1", proposedOwnerId: "father", status: "accepted", version: 2, domainVersion: 3, previousDomainVersion: 2 }); assert.equal(JSON.stringify(projection).includes(secret), false); assert.equal(JSON.stringify(audit).includes(secret), false); assert.throws(() => { audit[0].metadata.status = "changed"; }, TypeError);
   assert.throws(() => { projection.familyEvidence.push({}); }, TypeError);
 });

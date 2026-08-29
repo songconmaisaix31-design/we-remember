@@ -1,6 +1,6 @@
 const EVIDENCE_KINDS = new Set(["shareable_fact", "private_expression", "responsibility_request"]);
 const AUDIT_ENTITY_TYPES = new Set(["responsibility_domain", "handover", "todo", "reminder", "evidence"]);
-const AUDIT_METADATA_KEYS = new Set(["domainId", "handoverId", "todoId", "reminderId", "evidenceId", "fromOwnerId", "toOwnerId", "status", "version", "expectedDomainVersion", "handoverVersion"]);
+const AUDIT_METADATA_KEYS = new Set(["domainId", "handoverId", "todoId", "reminderId", "evidenceId", "fromOwnerId", "toOwnerId", "proposedOwnerId", "status", "version", "domainVersion", "previousDomainVersion", "expectedDomainVersion", "handoverVersion"]);
 const EVIDENCE_KEYS = new Set(["id", "familyId", "subjectMemberId", "createdByMemberId", "kind", "visibility", "content", "version"]);
 const CONSENT_KEYS = new Set(["id", "evidenceId", "subjectMemberId", "grantedVisibility", "status", "version"]);
 
