@@ -25,14 +25,36 @@ const ACCEPTED_AUDIT_METADATA_KEYS = Object.freeze([
   "handoverVersion",
 ]);
 const SAFE_IDENTIFIER = /^[a-z][a-z0-9:_-]{0,127}$/;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isText = (value) => typeof value === "string" && value.length > 0;
 const isIdentifier = (value) => typeof value === "string" && SAFE_IDENTIFIER.test(value);
 const isVersion = (value) => Number.isSafeInteger(value) && value >= 1;
-const isTimestamp = (value) => typeof value === "string" && ISO_TIMESTAMP.test(value) && Number.isFinite(Date.parse(value));
 const fail = (code) => freeze({ ok: false, error: { code } });
+
+function isTimestamp(value) {
+  if (typeof value !== "string") return false;
+  const match = ISO_TIMESTAMP.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[8] === "Z" ? 0 : Number(match[10]);
+  const offsetMinute = match[8] === "Z" ? 0 : Number(match[11]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const daysByMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+  return month >= 1 && month <= 12
+    && day >= 1 && day <= daysByMonth[month - 1]
+    && hour <= 23 && minute <= 59 && second <= 59
+    && offsetHour <= 23 && offsetMinute <= 59
+    && Number.isFinite(Date.parse(value));
+}
 
 function freeze(value, seen = new WeakSet()) {
   if (value && typeof value === "object" && !seen.has(value)) {
@@ -86,6 +108,17 @@ function uniqueMember(members, memberId, familyId, humanOnly = false) {
   if (matches.length !== 1 || !validMember(matches[0]) || matches[0].familyId !== familyId) return null;
   if (humanOnly && matches[0].kind !== "human") return null;
   return matches[0];
+}
+
+function uniqueRecordById(values, id) {
+  if (!Array.isArray(values)) return null;
+  const matches = values.filter((value) => isRecord(value) && value.id === id);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function uniqueFamilyRecord(values, id, familyId) {
+  const value = uniqueRecordById(values, id);
+  return value?.familyId === familyId ? value : null;
 }
 
 function resolveViewer(state, viewerContext) {
@@ -152,16 +185,38 @@ function projectAcceptedAuditMetadata(metadata, entry) {
   };
 }
 
-/** Rebuilds only the currently supported, content-free audit event shape. */
-export function projectAudit(audit, familyId) {
-  if (!Array.isArray(audit) || !isIdentifier(familyId)) return freeze([]);
+function acceptedAuditMatchesLiveState(metadata, state, familyId) {
+  if (!isRecord(state) || !Array.isArray(state.members)) return false;
+  const handover = uniqueFamilyRecord(state.handovers, metadata.handoverId, familyId);
+  const domain = uniqueFamilyRecord(state.domains, metadata.domainId, familyId);
+  if (!handover || !domain) return false;
+
+  return handover.domainId === metadata.domainId
+    && handover.fromOwnerId === metadata.fromOwnerId
+    && handover.proposedOwnerId === metadata.proposedOwnerId
+    && handover.status === "accepted"
+    && handover.confirmationRequiredFromId === null
+    && handover.expectedDomainVersion === metadata.previousDomainVersion
+    && handover.version === metadata.handoverVersion
+    && domain.accountableOwnerId === metadata.proposedOwnerId
+    && domain.version === metadata.domainVersion
+    && domain.visibility === "family"
+    && DOMAIN_STATUSES.has(domain.status)
+    && uniqueMember(state.members, metadata.fromOwnerId, familyId, true) !== null
+    && uniqueMember(state.members, metadata.proposedOwnerId, familyId, true) !== null;
+}
+
+/** Rebuilds supported audit events only when the supplied live state proves them. */
+export function projectAudit(audit, familyId, liveState) {
+  if (!Array.isArray(audit) || !isIdentifier(familyId) || !isRecord(liveState)) return freeze([]);
   return freeze(audit.flatMap((entry) => {
     if (!isRecord(entry) || entry.familyId !== familyId || !isIdentifier(entry.id)
       || !isIdentifier(entry.actorId) || entry.action !== "handover.accepted"
       || entry.entityType !== "handover" || !isIdentifier(entry.entityId)
       || !isTimestamp(entry.occurredAt)) return [];
     const metadata = projectAcceptedAuditMetadata(entry.metadata, entry);
-    if (!metadata || entry.id !== `audit:${entry.entityId}:${metadata.handoverVersion}`) return [];
+    if (!metadata || entry.id !== `audit:${entry.entityId}:${metadata.handoverVersion}`
+      || !acceptedAuditMatchesLiveState(metadata, liveState, familyId)) return [];
     return [{
       id: entry.id,
       familyId: entry.familyId,
@@ -237,27 +292,55 @@ function projectTodos(state, familyId, domainIds, domainOwners) {
   });
 }
 
-function familySourceIds(values, familyId) {
-  if (!Array.isArray(values)) return new Set();
-  return new Set(values.flatMap((value) => (
-    isRecord(value) && value.familyId === familyId && isIdentifier(value.id) ? [value.id] : []
-  )));
+function reminderMatchesLiveRecipient(state, viewer, reminder, domains, todos, handovers) {
+  if (reminder.sourceType === "event") {
+    const event = uniqueFamilyRecord(state.events, reminder.sourceId, viewer.familyId);
+    return event && Array.isArray(event.participantIds)
+      && event.participantIds.length === new Set(event.participantIds).size
+      && event.participantIds.every(isIdentifier)
+      && event.participantIds.includes(viewer.id)
+      && reminder.sourceVersion === 1;
+  }
+  if (reminder.sourceType === "todo") {
+    const todo = uniqueRecordById(todos, reminder.sourceId);
+    return todo?.assigneeId === viewer.id
+      && (reminder.status !== "pending" || reminder.sourceVersion === todo.version);
+  }
+  if (reminder.sourceType === "domain_review") {
+    const review = uniqueFamilyRecord(state.domainReviews, reminder.sourceId, viewer.familyId);
+    const domain = review && isIdentifier(review.domainId) && isVersion(review.version)
+      ? uniqueRecordById(domains, review.domainId)
+      : null;
+    return domain?.accountableOwnerId === viewer.id
+      && (reminder.status !== "pending" || reminder.sourceVersion === review.version);
+  }
+  if (reminder.sourceType === "handover") {
+    const handover = uniqueRecordById(handovers, reminder.sourceId);
+    if (!handover) return false;
+    if (reminder.status === "pending") {
+      return (handover.status === "pending_info" || handover.status === "pending_ack")
+        && handover.confirmationRequiredFromId === viewer.id
+        && reminder.sourceVersion === handover.version;
+    }
+    // A completed acceptance reminder is closed history, not an active confirmation route.
+    return reminder.status === "completed"
+      && handover.status === "accepted"
+      && handover.confirmationRequiredFromId === null
+      && handover.proposedOwnerId === viewer.id
+      && reminder.sourceVersion === handover.version;
+  }
+  return false;
 }
 
-function projectReminders(state, viewer, todos, handovers) {
+function projectReminders(state, viewer, domains, todos, handovers) {
   if (!Array.isArray(state.reminders)) return [];
-  const sourceIds = {
-    event: familySourceIds(state.events, viewer.familyId),
-    todo: new Set(todos.map((todo) => todo.id)),
-    domain_review: familySourceIds(state.domainReviews, viewer.familyId),
-    handover: new Set(handovers.map((handover) => handover.id)),
-  };
   return state.reminders.flatMap((reminder) => {
     if (!isRecord(reminder) || reminder.recipientId !== viewer.id || !isIdentifier(reminder.id)
       || !Object.hasOwn(REMINDER_ROUTING, reminder.sourceType)
-      || !isIdentifier(reminder.sourceId) || !sourceIds[reminder.sourceType].has(reminder.sourceId)
+      || !isIdentifier(reminder.sourceId)
       || !isVersion(reminder.sourceVersion) || reminder.routingBasis !== REMINDER_ROUTING[reminder.sourceType]
-      || !REMINDER_STATUSES.has(reminder.status)) return [];
+      || !REMINDER_STATUSES.has(reminder.status)
+      || !reminderMatchesLiveRecipient(state, viewer, reminder, domains, todos, handovers)) return [];
     return [{
       id: reminder.id,
       sourceType: reminder.sourceType,
@@ -307,7 +390,7 @@ export function projectResponsibilityState(state, viewerContext) {
   const domainOwners = new Map(domains.map((domain) => [domain.id, domain.accountableOwnerId]));
   const handovers = projectHandovers(state, viewer.familyId, domainIds);
   const todos = projectTodos(state, viewer.familyId, domainIds, domainOwners);
-  const reminders = projectReminders(state, viewer, todos, handovers);
+  const reminders = projectReminders(state, viewer, domains, todos, handovers);
   const notices = projectNotices(state, viewer, domainIds, new Set(handovers.map((handover) => handover.id)));
   return freeze({
     ok: true,
@@ -320,7 +403,7 @@ export function projectResponsibilityState(state, viewerContext) {
       todos,
       reminders,
       notices,
-      audit: projectAudit(audit, viewer.familyId),
+      audit: projectAudit(audit, viewer.familyId, state),
     },
   });
 }
