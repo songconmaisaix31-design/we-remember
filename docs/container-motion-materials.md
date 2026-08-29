@@ -31,10 +31,8 @@ The shared `.surface` class is the base material. Component classes should add l
 
 | Container | Selector | Material and shape | Motion | Product role |
 | --- | --- | --- | --- | --- |
-| Entry shell | `.auth-card.surface` | Translucent surface, `32px` radius | Child `.auth-step` enters in `260ms` | Keeps family matching and avatar selection visually contained |
-| Entry step | `.auth-step` | White overlay, `24px` radius | `enter`: fade, `8px` rise, `.985` to `1` scale | Makes each setup state change legible without a page transition |
 | Identity rail | `.identity-rail.surface` | Sticky translucent rail, `26px` radius | Navigation shifts `2px` horizontally; avatar rotates `4deg` and scales to `1.04` | Preserves identity and primary navigation on desktop |
-| Family badge | `.family-badge.surface` | Compact translucent identity chip | No container animation | Keeps the selected family and avatar visible without competing with the Agent |
+| Family badge | `.family-badge.surface` | Compact translucent family chip | No container animation | Keeps the fixed demo family context visible without competing with the Agent |
 | Composer | `.composer.surface` | Floating translucent input, `24px` radius | Focus rises `2px` over `220ms` and uses the raised shadow | Signals that text or voice input is active |
 | Schedule draft | `.draft-card` | Warm opaque card, `22px` radius, resting shadow | Arrives with its parent message using `enter` in `260ms` | Separates reviewable intent from a committed schedule item |
 | Agenda card | `.agenda-card.surface.lift-card` | Shared surface, `26px` radius | Hover rises `4px` over `250ms` | Makes the timeline summary inspectable without implying an action |
@@ -66,7 +64,7 @@ Current durations are `200ms`, `220ms`, or `260ms`. Do not apply this animation 
 
 ### Elevation hierarchy
 
-- `translateY(-2px)`: buttons, avatar options, suggestions, and composer focus.
+- `translateY(-2px)`: buttons, suggestions, and composer focus.
 - `translateY(-3px)`: date cells.
 - `translateY(-4px)`: inspectable cards such as agenda, people, and integration channels.
 
@@ -84,7 +82,7 @@ The waveform bars alternate between `5px` and `17px` height over `760ms`. This i
 
 ### Active and focus states
 
-Motion never carries state by itself. Active navigation, selected avatars, focused inputs, expanded channel details, and voice recording also use color, border, text, or `aria-*` state so the interaction remains understandable without animation.
+Motion never carries state by itself. Active navigation, focused inputs, expanded channel details, and voice recording also use color, border, text, or `aria-*` state so the interaction remains understandable without animation.
 
 ## Asset inventory
 
@@ -92,9 +90,8 @@ The container and motion system has no external image dependency.
 
 - Surface depth, ambient color fields, borders, shadows, and transitions are CSS-native.
 - Icons used inside containers are text or inline interface marks; there is no icon package dependency.
-- The 12 static SVG avatars under `app/assets/family-work/` are identity content placed inside containers. They are not container-motion assets.
+- The direct-entry UI uses `mother/work.svg` as the current person's default avatar and matching family-form SVGs for named members. These role images are identity presentation, not container-motion assets.
 - The transition SVGs under `svg-transition/` are separate showcase assets and are intentionally not loaded by the application.
-- Locally uploaded avatars are user content. They must not be treated as reusable design assets or committed to the repository.
 
 ## Accessibility and reliability rules
 

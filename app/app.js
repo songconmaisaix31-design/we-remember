@@ -12,19 +12,7 @@ const dictateButton = document.querySelector("#dictate-button");
 const voiceMessageButton = document.querySelector("#voice-message-button");
 const stopVoiceButton = document.querySelector("#stop-voice");
 const integrationsDialog = document.querySelector("#integrations-dialog");
-const authGate = document.querySelector("#auth-gate");
 const appShell = document.querySelector(".app-shell");
-const familyKeyForm = document.querySelector("#key-step");
-const familyKeyInput = document.querySelector("#family-key-input");
-const keyError = document.querySelector("#key-error");
-const continueToAvatarButton = document.querySelector("#continue-to-avatar");
-const enterFamilySpaceButton = document.querySelector("#enter-family-space");
-const avatarUpload = document.querySelector("#avatar-upload");
-const avatarUploadStatus = document.querySelector("#avatar-upload-status");
-const signOutButton = document.querySelector("#sign-out-button");
-const profileAvatar = document.querySelector("#profile-avatar");
-const spaceAvatar = document.querySelector("#space-avatar");
-const profileSpace = document.querySelector("#profile-space");
 const scheduleDayFilter = document.querySelector("#schedule-day-filter");
 const scheduleEventList = document.querySelector("#schedule-event-list");
 const peopleMemberList = document.querySelector("#people-member-list");
@@ -33,36 +21,16 @@ const scheduleTotalCount = document.querySelector("#schedule-total-count");
 const scheduleTodayCount = document.querySelector("#schedule-today-count");
 const scheduleNotificationCount = document.querySelector("#schedule-notification-count");
 const receiptTotalCount = document.querySelector("#receipt-total-count");
-const DEMO_SESSION_KEY = "we-remember-demo-session-v2";
-const DEMO_FAMILY_KEY = "DEMO-HOME";
-const AVATAR_PRESETS = Object.freeze({
-  "mother-family": "assets/family-work/mother/family.svg",
-  "mother-work": "assets/family-work/mother/work.svg",
-  "father-family": "assets/family-work/father/family.svg",
-  "father-work": "assets/family-work/father/work.svg",
-  "daughter-family": "assets/family-work/daughter/family.svg",
-  "daughter-work": "assets/family-work/daughter/work.svg",
-  "son-family": "assets/family-work/son/family.svg",
-  "son-work": "assets/family-work/son/work.svg",
-  "grandfather-family": "assets/family-work/grandfather/family.svg",
-  "grandfather-work": "assets/family-work/grandfather/work.svg",
-  "grandmother-family": "assets/family-work/grandmother/family.svg",
-  "grandmother-work": "assets/family-work/grandmother/work.svg",
-});
-const AVATAR_IDS = new Set(Object.keys(AVATAR_PRESETS));
-
-let selectedAvatar = null;
-let activeSession = null;
 let activeView = "agent";
 let selectedMember = "all";
 
 const members = Object.freeze([
-  { name: "我", glyph: "我", tone: "coral", availability: "在线", route: "应用内演示", configured: true },
-  { name: "妈妈", glyph: "妈", tone: "sage", availability: "可联系", route: "个人微信 ClawBot", configured: false },
-  { name: "爸爸", glyph: "爸", tone: "blue", availability: "可联系", route: "飞书演示", configured: true },
-  { name: "女儿", glyph: "女", tone: "gold", availability: "离线", route: "应用内演示", configured: true },
-  { name: "儿子", glyph: "儿", tone: "sage", availability: "离线", route: "未配置", configured: false },
-  { name: "奶奶", glyph: "奶", tone: "coral", availability: "可联系", route: "未配置", configured: false },
+  { name: "我", role: "self", avatar: "assets/family-work/mother/work.svg", availability: "在线", route: "应用内演示", configured: true },
+  { name: "妈妈", role: "mother", avatar: "assets/family-work/mother/family.svg", availability: "可联系", route: "个人微信 ClawBot", configured: false },
+  { name: "爸爸", role: "father", avatar: "assets/family-work/father/family.svg", availability: "可联系", route: "飞书演示", configured: true },
+  { name: "女儿", role: "daughter", avatar: "assets/family-work/daughter/family.svg", availability: "离线", route: "应用内演示", configured: true },
+  { name: "儿子", role: "son", avatar: "assets/family-work/son/family.svg", availability: "离线", route: "未配置", configured: false },
+  { name: "奶奶", role: "grandmother", avatar: "assets/family-work/grandmother/family.svg", availability: "可联系", route: "未配置", configured: false },
 ]);
 
 const events = [
@@ -75,145 +43,6 @@ const notificationReceipts = [
   { id: "receipt-fixture-1", eventTitle: "妈妈 · 社区体检", recipient: "爸爸", route: "飞书演示", state: "accepted", stateLabel: "演示接受", humanAck: "家人确认：无", time: "今天 08:30", evidence: "仅代表本地 Fixture 状态；无平台投递或阅读证据。" },
   { id: "receipt-fixture-2", eventTitle: "取快递", recipient: "我", route: "应用内演示", state: "queued", stateLabel: "本地排队", humanAck: "家人确认：无", time: "今天 18:10", evidence: "尚未触发真实消息；不代表已读或完成。" },
 ];
-
-const readDemoSession = () => {
-  try {
-    const candidate = JSON.parse(window.sessionStorage.getItem(DEMO_SESSION_KEY));
-    if (!candidate || candidate.familyId !== "demo-family" || !candidate.avatar) return null;
-    if (candidate.avatar.kind === "preset" && AVATAR_IDS.has(candidate.avatar.id)) return candidate;
-    if (candidate.avatar.kind === "upload" && /^data:image\/(png|jpeg|webp);base64,/.test(candidate.avatar.dataUrl)) return candidate;
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-const persistDemoSession = () => {
-  if (!activeSession) return;
-  try {
-    window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(activeSession));
-  } catch {
-    showToast("头像已用于当前页面，但图片较大，刷新后需要重新选择。");
-  }
-};
-
-const setAuthStep = (step) => {
-  document.querySelectorAll(".auth-step").forEach((element) => {
-    element.hidden = element.id !== `${step}-step`;
-  });
-  document.querySelectorAll("[data-auth-progress]").forEach((element) => {
-    element.classList.toggle("is-current", element.dataset.authProgress === step);
-  });
-};
-
-const applyAvatar = (element, avatar) => {
-  element.className = "custom-avatar";
-  element.style.backgroundImage = "";
-  element.textContent = "我";
-  if (avatar.kind === "upload") {
-    element.classList.add("uploaded");
-    element.style.backgroundImage = `url(${JSON.stringify(avatar.dataUrl).slice(1, -1)})`;
-    element.textContent = "";
-    return;
-  }
-  element.classList.add("svg-avatar");
-  element.style.backgroundImage = `url("${AVATAR_PRESETS[avatar.id]}")`;
-  element.textContent = "";
-};
-
-const updateSessionPresentation = () => {
-  if (!activeSession) return;
-  profileSpace.textContent = "我们的家 · 6 人";
-  applyAvatar(profileAvatar, activeSession.avatar);
-  applyAvatar(spaceAvatar, activeSession.avatar);
-};
-
-const showApplication = (session) => {
-  activeSession = session;
-  authGate.hidden = true;
-  appShell.hidden = false;
-  document.body.dataset.sessionStatus = "ready";
-  updateSessionPresentation();
-};
-
-const showSignIn = () => {
-  activeSession = null;
-  selectedAvatar = null;
-  familyKeyForm.reset();
-  keyError.hidden = true;
-  avatarUploadStatus.textContent = "PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传";
-  document.querySelectorAll(".avatar-option").forEach((element) => element.setAttribute("aria-checked", "false"));
-  enterFamilySpaceButton.disabled = true;
-  appShell.hidden = true;
-  authGate.hidden = false;
-  document.body.dataset.sessionStatus = "signed-out";
-  setAuthStep("key");
-};
-
-familyKeyForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (familyKeyInput.value.trim().toUpperCase() !== DEMO_FAMILY_KEY) {
-    keyError.hidden = false;
-    familyKeyInput.setAttribute("aria-invalid", "true");
-    return;
-  }
-  keyError.hidden = true;
-  familyKeyInput.removeAttribute("aria-invalid");
-  familyKeyInput.value = "";
-  setAuthStep("family");
-  continueToAvatarButton.focus();
-});
-
-continueToAvatarButton.addEventListener("click", () => {
-  setAuthStep("avatar");
-  document.querySelector(".avatar-option")?.focus();
-});
-
-document.querySelectorAll(".avatar-option").forEach((button) => {
-  button.addEventListener("click", () => {
-    selectedAvatar = { kind: "preset", id: button.dataset.avatarId };
-    avatarUpload.value = "";
-    avatarUploadStatus.textContent = "PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传";
-    document.querySelectorAll(".avatar-option").forEach((option) => option.setAttribute("aria-checked", String(option === button)));
-    enterFamilySpaceButton.disabled = false;
-  });
-});
-
-avatarUpload.addEventListener("change", () => {
-  const file = avatarUpload.files?.[0];
-  if (!file) return;
-  if (!new Set(["image/png", "image/jpeg", "image/webp"]).has(file.type) || file.size > 2 * 1024 * 1024) {
-    avatarUpload.value = "";
-    avatarUploadStatus.textContent = "请选择 2 MB 以内的 PNG、JPEG 或 WebP 图片。";
-    return;
-  }
-  const reader = new FileReader();
-  reader.addEventListener("load", () => {
-    selectedAvatar = { kind: "upload", dataUrl: String(reader.result) };
-    document.querySelectorAll(".avatar-option").forEach((option) => option.setAttribute("aria-checked", "false"));
-    avatarUploadStatus.textContent = `已选择 ${file.name} · 仅在本地预览`;
-    enterFamilySpaceButton.disabled = false;
-  }, { once: true });
-  reader.readAsDataURL(file);
-});
-
-enterFamilySpaceButton.addEventListener("click", () => {
-  if (!selectedAvatar) return;
-  const session = { familyId: "demo-family", avatar: selectedAvatar };
-  activeSession = session;
-  persistDemoSession();
-  showApplication(session);
-  showToast("已进入匹配到的家庭（本地演示）");
-});
-
-document.querySelectorAll("[data-auth-back]").forEach((button) => {
-  button.addEventListener("click", () => setAuthStep(button.dataset.authBack));
-});
-
-signOutButton.addEventListener("click", () => {
-  window.sessionStorage.removeItem(DEMO_SESSION_KEY);
-  showSignIn();
-});
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -266,7 +95,7 @@ const renderSchedule = () => {
 const renderPeople = () => {
   peopleMemberList.innerHTML = members.map((member) => `
     <article class="member-row">
-      <span class="person-avatar ${member.tone}" aria-hidden="true">${escapeHtml(member.glyph)}</span>
+      <img class="person-avatar" data-role-avatar="${escapeHtml(member.role)}" src="${escapeHtml(member.avatar)}" alt="" aria-hidden="true" />
       <div><strong>${escapeHtml(member.name)}</strong><small>${escapeHtml(member.availability)}</small></div>
       <div class="route-state"><span class="${member.configured ? "" : "unavailable"}">${escapeHtml(member.route)}</span><small>${member.configured ? "本地演示路径" : "无可用演示路径"}</small></div>
     </article>`).join("");
@@ -575,10 +404,7 @@ document.querySelectorAll("[data-channel-detail]").forEach((button) => {
   });
 });
 
-const restoredSession = readDemoSession();
-if (restoredSession) showApplication(restoredSession);
-else showSignIn();
-
+document.body.dataset.sessionStatus = "ready";
 renderSharedState();
 setActiveView("agent", { focusHeading: false });
 autosize();

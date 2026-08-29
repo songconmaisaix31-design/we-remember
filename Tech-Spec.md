@@ -8,7 +8,7 @@ The prototype is a dependency-free static web application:
 - `app/styles.css`: responsive layout, tokens, transitions, and reduced-motion handling.
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
 - `app/assets/family-work/`: 12 verified static SVG avatar endpoints; transition SVGs are intentionally excluded.
-- `app/app.js` session setup: public family-key fixture, unique family confirmation, custom avatar choice, and session-only persistence.
+- `app/index.html` direct entry: the static prototype renders the Agent shell immediately with fixed fictional family context.
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
 - `docs/integration-gateway.md`: routing, identity, privacy, reliability, and platform-adapter boundaries.
@@ -19,26 +19,13 @@ The prototype is a dependency-free static web application:
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
 
-## Authentication state model
+## Prototype entry state
 
 ```text
-signed_out -> key_verification -> family_confirmation -> avatar_selection -> signed_in
-     ^                                                                    |
-     `------------------------------ sign_out ----------------------------'
+page_load -> ready -> agent_view
 ```
 
-The prototype uses `sessionStorage` only for a fictional family ID and selected avatar. It clears the entered key after matching. Production uses server-side session state with a secure, HTTP-only, same-site cookie and never returns or persists the raw family key.
-
-The production flow requires a backend because rate limiting, keyed hashing, binding resolution, session issuance, and revocation cannot be safely implemented in this static browser application. `DEMO-HOME` is an explicitly public UI fixture, not a production credential.
-
-## Avatar state
-
-```text
-static_svg_selected -> session avatar
-bounded_upload -----> local preview -----> session avatar
-```
-
-Static SVG preset IDs are allowlisted and resolve to repository-owned paths; the client cannot supply an arbitrary SVG URL. Local upload accepts PNG, JPEG, or WebP up to 2 MB and never sends the file in the static prototype. Production upload must decode and re-encode the image, strip metadata, enforce dimensions and size, and store only an opaque asset ID in the session.
+The prototype has no authentication or avatar-setup state and writes no identity session to browser storage. It uses fixed fictional family context, `mother/work.svg` as the default personal avatar, and the matching family-form SVG for each named member. Production identity still requires the backend contract because rate limiting, keyed hashing, binding resolution, secure session issuance, and revocation cannot be implemented safely in a static browser application.
 
 ## State model
 
@@ -145,4 +132,4 @@ Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome 
 
 Also verify the Agent, family schedule, family and notifications, and connection-center destinations at 1440×1000, 820×1180, and 390×844. Confirmation must update schedule counts and notification receipts across views, filters must expose their selected state, and every mobile primary action must remain reachable above the fixed navigation.
 
-Also verify invalid-key failure, the public demo-key match, all 12 static SVG avatars, the absence of transition SVGs, a representative valid/invalid upload, session restoration, sign-out, reduced motion, and the absence of work-workspace controls.
+Also verify direct Agent entry, the absence of onboarding controls, all 12 retained static SVG assets, the absence of transition SVGs, reduced motion, and the absence of work-workspace controls.

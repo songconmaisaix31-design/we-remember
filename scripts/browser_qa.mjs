@@ -71,19 +71,31 @@ await send("Emulation.setEmulatedMedia", {
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
 
-async function completeDemoSignIn(avatarId = "mother-family") {
-  const signedIn = await evaluate("!document.querySelector('.app-shell').hidden");
-  if (signedIn) return;
-  await evaluate(`(() => {
-    const keyInput = document.querySelector('#family-key-input');
-    keyInput.value = 'DEMO-HOME';
-    document.querySelector('#key-step').requestSubmit();
-    document.querySelector('#continue-to-avatar').click();
-    document.querySelector('[data-avatar-id="${avatarId}"]').click();
-    document.querySelector('#enter-family-space').click();
-    return true;
-  })()`);
-  await new Promise((resolve) => setTimeout(resolve, 250));
+async function assertDirectEntry() {
+  const entry = JSON.parse(await evaluate(`JSON.stringify({
+    appVisible: !document.querySelector('.app-shell')?.hidden,
+    agentVisible: !document.querySelector('#agent-view')?.hidden,
+    onboardingAbsent: document.querySelector('#auth-gate, #family-key-input, #avatar-step, #avatar-upload') === null,
+    ready: document.body.dataset.sessionStatus === 'ready',
+    defaultAvatar: document.querySelector('#profile-avatar')?.getAttribute('src'),
+    roleAvatarCount: document.querySelectorAll('[data-role-avatar]').length,
+    roleAvatarsLoaded: [...document.querySelectorAll('[data-role-avatar]')].every(image => image.complete && image.naturalWidth > 0),
+    memberAvatarSources: [...document.querySelectorAll('#people-member-list [data-role-avatar]')].map(image => image.getAttribute('src'))
+  })`));
+  const expectedMemberAvatars = [
+    'assets/family-work/mother/work.svg',
+    'assets/family-work/mother/family.svg',
+    'assets/family-work/father/family.svg',
+    'assets/family-work/daughter/family.svg',
+    'assets/family-work/son/family.svg',
+    'assets/family-work/grandmother/family.svg'
+  ];
+  if (!entry.appVisible || !entry.agentVisible || !entry.onboardingAbsent || !entry.ready
+    || entry.defaultAvatar !== expectedMemberAvatars[0] || entry.roleAvatarCount !== 11
+    || !entry.roleAvatarsLoaded || JSON.stringify(entry.memberAvatarSources) !== JSON.stringify(expectedMemberAvatars)) {
+    throw new Error(`Direct entry failed: ${JSON.stringify(entry)}`);
+  }
+  return entry;
 }
 
 function assertNoRuntimeErrors() {
@@ -305,115 +317,12 @@ async function assertContainerExperience(selector, minimumRadius, minimumPadding
   return { radius: before.radius, padding: before.padding, lifted: true, shadowChanged: true };
 }
 
+const directEntry = await assertDirectEntry();
+
 if (scenario === "identity") {
-  await evaluate("sessionStorage.removeItem('we-remember-demo-session-v2'); true");
-  await send("Page.navigate", { url });
-  await new Promise((resolve) => setTimeout(resolve, 500));
-
-  const signedOut = JSON.parse(await evaluate(`JSON.stringify({
-    gateVisible: !document.querySelector('#auth-gate').hidden,
-    appHidden: document.querySelector('.app-shell').hidden,
-    keyCurrent: document.querySelector('[data-auth-progress="key"]').classList.contains('is-current')
-  })`));
-  if (!signedOut.gateVisible || !signedOut.appHidden || !signedOut.keyCurrent) {
-    throw new Error(`Signed-out gate failed: ${JSON.stringify(signedOut)}`);
-  }
-
-  await evaluate(`(() => {
-    const input = document.querySelector('#family-key-input');
-    input.value = 'WRONG-KEY';
-    document.querySelector('#key-step').requestSubmit();
-    return true;
-  })()`);
-  const invalidKeySafe = await evaluate("!document.querySelector('#key-error').hidden && !document.querySelector('.app-shell').hidden === false");
-  if (!invalidKeySafe) throw new Error("Invalid family key did not fail closed");
-
-  await evaluate(`(() => {
-    const input = document.querySelector('#family-key-input');
-    input.value = 'DEMO-HOME';
-    document.querySelector('#key-step').requestSubmit();
-    document.querySelector('#continue-to-avatar').click();
-    return true;
-  })()`);
-  await new Promise((resolve) => setTimeout(resolve, 200));
-
-  const picker = JSON.parse(await evaluate(`JSON.stringify({
-    avatarCount: document.querySelectorAll('.avatar-option').length,
-    avatarImagesReady: [...document.querySelectorAll('.avatar-option img')].every(image => image.complete && image.naturalWidth > 0),
-    avatarStepVisible: !document.querySelector('#avatar-step').hidden,
-    viewportWidth: window.innerWidth,
-    scrollWidth: document.documentElement.scrollWidth
-  })`));
-  if (picker.avatarCount !== 12 || !picker.avatarImagesReady || !picker.avatarStepVisible || picker.scrollWidth > picker.viewportWidth) {
-    throw new Error(`Avatar picker failed: ${JSON.stringify(picker)}`);
-  }
-
-  const uploadChecks = JSON.parse(await evaluate(`(async () => {
-    const upload = document.querySelector('#avatar-upload');
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'too-large.png', { type: 'image/png' }));
-    upload.files = transfer.files;
-    upload.dispatchEvent(new Event('change', { bubbles: true }));
-    const oversizedRejected = upload.value === '' && document.querySelector('#enter-family-space').disabled;
-
-    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nKsAAAAASUVORK5CYII='), character => character.charCodeAt(0));
-    const validTransfer = new DataTransfer();
-    validTransfer.items.add(new File([bytes], 'avatar.png', { type: 'image/png' }));
-    upload.files = validTransfer.files;
-    upload.dispatchEvent(new Event('change', { bubbles: true }));
-    await new Promise(resolve => setTimeout(resolve, 100));
-    return JSON.stringify({
-      oversizedRejected,
-      validAccepted: !document.querySelector('#enter-family-space').disabled && document.querySelector('#avatar-upload-status').textContent.includes('avatar.png')
-    });
-  })()`));
-  if (!uploadChecks.oversizedRejected || !uploadChecks.validAccepted) {
-    throw new Error(`Avatar upload validation failed: ${JSON.stringify(uploadChecks)}`);
-  }
-
-  if (width <= 520) {
-    const actionReachable = await evaluate(`(() => {
-      const action = document.querySelector('#enter-family-space');
-      action.scrollIntoView({ block: 'center' });
-      const rect = action.getBoundingClientRect();
-      return rect.top >= 0 && rect.bottom <= window.innerHeight;
-    })()`);
-    if (!actionReachable) throw new Error("Mobile avatar confirmation cannot be reached by scrolling");
-  }
-
-  mkdirSync(dirname(screenshotPath), { recursive: true });
-  const pickerScreenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-  writeFileSync(screenshotPath, Buffer.from(pickerScreenshot.data, "base64"));
-
-  await evaluate(`(() => {
-    document.querySelector('[data-avatar-id="grandmother-work"]').click();
-    document.querySelector('#enter-family-space').click();
-    return true;
-  })()`);
-
-  await send("Page.reload");
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  const restored = JSON.parse(await evaluate(`JSON.stringify({
-    appVisible: !document.querySelector('.app-shell').hidden,
-    avatarClass: document.querySelector('#profile-avatar').className,
-    avatarBackground: document.querySelector('#profile-avatar').style.backgroundImage,
-    workSwitchAbsent: document.querySelector('#mode-switch') === null
-  })`));
-  if (!restored.appVisible || !restored.avatarClass.includes("svg-avatar") || !restored.avatarBackground.includes("grandmother/work.svg") || !restored.workSwitchAbsent) {
-    throw new Error(`Session restore failed: ${JSON.stringify(restored)}`);
-  }
-
-  await evaluate("document.querySelector('#sign-out-button').click(); true");
-  const signedOutAgain = await evaluate("!document.querySelector('#auth-gate').hidden && document.querySelector('.app-shell').hidden");
-  if (!signedOutAgain) throw new Error("Sign-out did not restore the login gate");
-
-  assertNoRuntimeErrors();
-  console.log(JSON.stringify({ status: "passed", scenario, width, height, runtimeErrors, invalidKeySafe, ...picker, ...uploadChecks, restored, signedOutAgain }, null, 2));
-  socket.close();
+  await captureResult({ directEntry });
   process.exit(0);
 }
-
-await completeDemoSignIn();
 
 if (scenario === "schedule" || scenario === "people") {
   const synchronization = await createAndConfirmRepresentativeDraft();

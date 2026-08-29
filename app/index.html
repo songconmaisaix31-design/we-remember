@@ -12,76 +12,7 @@
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
-    <section class="auth-gate" id="auth-gate" aria-labelledby="auth-title">
-      <div class="auth-card surface">
-        <header class="auth-header">
-          <span class="brand-mark" aria-hidden="true">W</span>
-          <div>
-            <p class="eyebrow">WE REMEMBER · SIGN IN</p>
-            <h1 id="auth-title">先找到属于你的家庭空间</h1>
-            <p>输入家庭管理员提供的密钥，只匹配一个家庭。确认家庭后，先选择自己的头像再进入。</p>
-          </div>
-        </header>
-
-        <div class="auth-progress" aria-label="登录进度">
-          <span class="is-current" data-auth-progress="key">01 家庭密钥</span>
-          <span data-auth-progress="family">02 确认家庭</span>
-          <span data-auth-progress="avatar">03 选择头像</span>
-        </div>
-
-        <form class="auth-step" id="key-step">
-          <div class="key-mark" aria-hidden="true">钥</div>
-          <div class="auth-step-copy">
-            <h2>使用家庭密钥登录</h2>
-            <p>生产环境只把密钥发送到服务端做哈希校验，不在浏览器保存。当前使用公开演示码验证交互。</p>
-          </div>
-          <label class="family-key-field" for="family-key-input"><span>家庭密钥</span><input id="family-key-input" name="familyKey" autocomplete="off" spellcheck="false" placeholder="输入家庭密钥" required /></label>
-          <button class="primary-auth-button" id="match-family-button" type="submit">匹配家庭 <span>→</span></button>
-          <p class="prototype-badge">公开演示码：DEMO-HOME · 不是真实密钥</p>
-          <p class="key-error" id="key-error" role="alert" hidden>没有匹配到家庭。请检查密钥，或联系家庭管理员重新生成。</p>
-        </form>
-
-        <div class="auth-step" id="family-step" hidden>
-          <div class="step-heading">
-            <div><span>密钥匹配成功</span><h2>这是你要进入的家庭吗？</h2></div>
-            <small>唯一匹配</small>
-          </div>
-          <div class="matched-family" id="matched-family">
-            <span class="space-glyph">家</span><span><strong>我们的家</strong><small>6 位成员 · 家庭时间表</small></span><i>已安全匹配</i>
-          </div>
-          <p class="match-boundary">密钥只用于建立本次家庭会话，不会授予其他家庭或外部平台权限。</p>
-          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="key">返回</button><button class="primary-auth-button" id="continue-to-avatar" type="button">确认并选择头像</button></div>
-        </div>
-
-        <div class="auth-step" id="avatar-step" hidden>
-          <div class="step-heading">
-            <div><span>家庭已确认</span><h2>选择你的头像</h2></div>
-            <small>进入前完成</small>
-          </div>
-          <p class="avatar-library-note">12 个默认 SVG 头像只改变你的显示形象，不会切换空间或权限。</p>
-          <div class="avatar-options" role="radiogroup" aria-label="默认 SVG 头像">
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="mother-family"><img src="assets/family-work/mother/family.svg" alt="妈妈居家头像" /><small>妈妈 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="mother-work"><img src="assets/family-work/mother/work.svg" alt="妈妈职业头像" /><small>妈妈 · 职业</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="father-family"><img src="assets/family-work/father/family.svg" alt="爸爸居家头像" /><small>爸爸 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="father-work"><img src="assets/family-work/father/work.svg" alt="爸爸职业头像" /><small>爸爸 · 职业</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="daughter-family"><img src="assets/family-work/daughter/family.svg" alt="女儿居家头像" /><small>女儿 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="daughter-work"><img src="assets/family-work/daughter/work.svg" alt="女儿职业头像" /><small>女儿 · 职业</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="son-family"><img src="assets/family-work/son/family.svg" alt="儿子居家头像" /><small>儿子 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="son-work"><img src="assets/family-work/son/work.svg" alt="儿子职业头像" /><small>儿子 · 职业</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="grandfather-family"><img src="assets/family-work/grandfather/family.svg" alt="爷爷居家头像" /><small>爷爷 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="grandfather-work"><img src="assets/family-work/grandfather/work.svg" alt="爷爷职业头像" /><small>爷爷 · 职业</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="grandmother-family"><img src="assets/family-work/grandmother/family.svg" alt="奶奶居家头像" /><small>奶奶 · 居家</small></button>
-            <button class="avatar-option" type="button" role="radio" aria-checked="false" data-avatar-id="grandmother-work"><img src="assets/family-work/grandmother/work.svg" alt="奶奶职业头像" /><small>奶奶 · 职业</small></button>
-          </div>
-          <label class="avatar-upload" for="avatar-upload"><span>上传自己的头像</span><small id="avatar-upload-status">PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传</small><input id="avatar-upload" type="file" accept="image/png,image/jpeg,image/webp" /></label>
-          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="family">返回</button><button class="primary-auth-button" id="enter-family-space" type="button" disabled>进入家庭时间表</button></div>
-        </div>
-
-        <footer class="auth-footer">一个密钥只匹配一个家庭 · 不根据昵称、群名或手机号猜测身份</footer>
-      </div>
-    </section>
-
-    <div class="app-shell" data-app-state="idle" hidden>
+    <div class="app-shell" data-app-state="idle">
       <aside class="identity-rail surface" aria-label="主导航">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">W</span>
@@ -90,7 +21,7 @@
 
         <div class="profile">
           <div class="avatar-wrap">
-            <span class="custom-avatar coral" id="profile-avatar" aria-label="我的头像">我</span>
+            <img class="custom-avatar role-avatar" id="profile-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg" alt="我的职场女性头像" />
             <span class="presence" aria-label="Agent 在线">✦</span>
           </div>
           <div>
@@ -116,8 +47,7 @@
 
         <div class="rail-note">
           <span class="status-dot"></span>
-          <p><strong>家庭密钥演示</strong><br />日程和通知仅保存在本页</p>
-          <button class="sign-out-button" id="sign-out-button" type="button">退出</button>
+          <p><strong>本地交互原型</strong><br />日程和通知仅保存在本页</p>
         </div>
       </aside>
 
@@ -129,7 +59,7 @@
             <h1 id="agent-view-title">今天想安排什么？</h1>
             <p>直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
           </div>
-          <div class="family-badge surface"><span class="custom-avatar coral" id="space-avatar" aria-hidden="true">我</span><span>我们的家</span></div>
+          <div class="family-badge surface"><img class="custom-avatar role-avatar" id="space-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg" alt="" aria-hidden="true" /><span>我们的家</span></div>
         </header>
 
         <section class="date-strip" aria-label="本周日期">
@@ -277,9 +207,9 @@
             </div>
           </header>
           <ul class="people-list">
-            <li><span class="person-avatar coral">我</span><span><strong>我</strong><small>应用内</small></span><i class="online"></i></li>
-            <li><span class="person-avatar blue">爸</span><span><strong>爸爸</strong><small>飞书</small></span><i class="online"></i></li>
-            <li><span class="person-avatar gold">女</span><span><strong>女儿</strong><small>应用内</small></span><i></i></li>
+            <li><img class="person-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg" alt="" aria-hidden="true" /><span><strong>我</strong><small>应用内</small></span><i class="online"></i></li>
+            <li><img class="person-avatar" data-role-avatar="father" src="assets/family-work/father/family.svg" alt="" aria-hidden="true" /><span><strong>爸爸</strong><small>飞书</small></span><i class="online"></i></li>
+            <li><img class="person-avatar" data-role-avatar="daughter" src="assets/family-work/daughter/family.svg" alt="" aria-hidden="true" /><span><strong>女儿</strong><small>应用内</small></span><i></i></li>
           </ul>
           <p class="privacy-note">Agent 只会通知确认卡中列出的人。</p>
         </section>

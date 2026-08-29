@@ -46,12 +46,12 @@ require(HTML, 'class="schedule-panel surface lift-card"', "schedule container el
 require(HTML, 'class="people-panel surface lift-card"', "people container elevation")
 require(HTML, 'class="receipts-panel surface lift-card"', "receipt container elevation")
 require(HTML, 'data-create-with-agent', "route back to Agent")
-require(HTML, 'id="auth-gate"', "signed-out gate")
-require(HTML, 'id="family-key-input"', "family-key input")
-require(HTML, 'id="matched-family"', "unique family confirmation")
-require(HTML, 'id="avatar-step"', "custom avatar selection")
-require(HTML, 'id="avatar-upload"', "local avatar upload")
-require(HTML, 'aria-label="默认 SVG 头像"', "static SVG avatar library")
+require(HTML, 'class="app-shell" data-app-state="idle">', "direct-entry application shell")
+require(HTML, 'id="profile-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg"', "working-woman default avatar")
+require(HTML, 'data-role-avatar="father" src="assets/family-work/father/family.svg"', "father role avatar")
+require(JS, 'role: "mother", avatar: "assets/family-work/mother/family.svg"', "mother role avatar mapping")
+require(JS, 'role: "son", avatar: "assets/family-work/son/family.svg"', "son role avatar mapping")
+require(JS, 'role: "grandmother", avatar: "assets/family-work/grandmother/family.svg"', "grandmother role avatar mapping")
 require(HTML, 'data-channel="wecom"', "WeCom connector")
 require(HTML, 'data-channel="wechat-clawbot"', "personal WeChat ClawBot connector")
 require(HTML, 'data-channel="feishu"', "Feishu connector")
@@ -62,10 +62,7 @@ require(JS, 'mode === "voice_message"', "voice auto-send branch")
 require(JS, 'dataset.confirmed = "true"', "confirmation gate")
 require(JS, "appendTimelineEvent(draft)", "confirmed schedule sync")
 require(JS, "setActiveView", "shared application view routing")
-require(JS, "window.sessionStorage", "session-only prototype state")
-require(JS, 'const DEMO_FAMILY_KEY = "DEMO-HOME"', "public family-key fixture")
-require(JS, 'file.size > 2 * 1024 * 1024', "avatar upload size bound")
-require(JS, 'new Set(["image/png", "image/jpeg", "image/webp"])', "avatar upload MIME allowlist")
+require(JS, 'document.body.dataset.sessionStatus = "ready"', "direct-entry ready state")
 require(CSS, "@media (max-width: 520px)", "mobile breakpoint")
 require(CSS, "@media (prefers-reduced-motion: reduce)", "reduced-motion support")
 require(CSS, "translateY(-4px)", "reference-inspired card lift")
@@ -115,7 +112,19 @@ if ROBOT_PACKAGE.get("dependencies"):
 if "@we-remember/robot-adapter" in HTML or "@we-remember/robot-adapter" in JS:
     raise AssertionError("Static browser prototype must not import the physical robot module")
 
-for removed_fragment in ('id="feishu-sign-in"', 'id="mode-switch"', 'data-visual-mode="family"', "ROLE_ASSETS"):
+for removed_fragment in (
+    'id="feishu-sign-in"',
+    'id="mode-switch"',
+    'data-visual-mode="family"',
+    "ROLE_ASSETS",
+    'id="auth-gate"',
+    'id="family-key-input"',
+    'id="avatar-step"',
+    'id="avatar-upload"',
+    'id="sign-out-button"',
+    "DEMO_SESSION_KEY",
+    "DEMO_FAMILY_KEY",
+):
     if removed_fragment in HTML or removed_fragment in JS:
         raise AssertionError(f"Removed identity/workspace direction still present: {removed_fragment}")
 
