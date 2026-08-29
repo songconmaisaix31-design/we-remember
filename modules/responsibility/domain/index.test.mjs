@@ -263,17 +263,22 @@ test("explicit todo retains its supplied same-family human assignee", () => {
   assert.equal(result.value.domainId, domain.id);
 });
 
-test("rejects agent and cross-family explicit assignees", () => {
-  expectCode(
-    linkTodoToDomain({
-      todo: { ...todo, assigneeId: "helper" },
-      domain,
-      members,
-      expectedDomainVersion: 2,
-      expectedTodoVersion: 3,
-    }),
-    DOMAIN_COMMAND_ERROR_CODES.ASSIGNEE_NOT_HUMAN,
-  );
+test("explicit todo retains its supplied same-family agent assignee", () => {
+  const result = linkTodoToDomain({
+    todo: { ...todo, assigneeId: "helper" },
+    domain,
+    members,
+    expectedDomainVersion: 2,
+    expectedTodoVersion: 3,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.assigneeId, "helper");
+  assert.equal(result.value.assignmentBasis, "explicit");
+  assert.equal(result.value.domainId, domain.id);
+});
+
+test("rejects cross-family, missing, and duplicate explicit assignees", () => {
   expectCode(
     linkTodoToDomain({
       todo: { ...todo, assigneeId: "outside" },
@@ -283,6 +288,26 @@ test("rejects agent and cross-family explicit assignees", () => {
       expectedTodoVersion: 3,
     }),
     DOMAIN_COMMAND_ERROR_CODES.FAMILY_MISMATCH,
+  );
+  expectCode(
+    linkTodoToDomain({
+      todo: { ...todo, assigneeId: "unknown" },
+      domain,
+      members,
+      expectedDomainVersion: 2,
+      expectedTodoVersion: 3,
+    }),
+    DOMAIN_COMMAND_ERROR_CODES.ASSIGNEE_NOT_FOUND,
+  );
+  expectCode(
+    linkTodoToDomain({
+      todo: { ...todo, assigneeId: "helper" },
+      domain,
+      members: [...members, { ...members[2] }],
+      expectedDomainVersion: 2,
+      expectedTodoVersion: 3,
+    }),
+    DOMAIN_COMMAND_ERROR_CODES.ASSIGNEE_NOT_UNIQUE,
   );
 });
 
@@ -326,6 +351,21 @@ test("sets an open same-domain todo as the next action immutably", () => {
   assert.equal(result.value.nextActionId, todo.id);
   assert.equal(result.value.version, 3);
   assert.deepEqual({ linkedTodo, domainInput }, before);
+});
+
+test("sets an open explicit agent todo as the next action without changing the human owner", () => {
+  const result = setDomainNextAction({
+    domain,
+    todo: { ...todo, domainId: domain.id, assigneeId: "helper" },
+    members,
+    expectedDomainVersion: 2,
+    expectedTodoVersion: 3,
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.value.nextActionId, todo.id);
+  assert.equal(result.value.accountableOwnerId, "mother");
+  assert.equal(result.value.version, 3);
 });
 
 test("rejects closed, cross-family, other-domain, and stale next actions", () => {

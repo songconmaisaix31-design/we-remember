@@ -59,7 +59,6 @@ export const DOMAIN_COMMAND_ERROR_CODES = Object.freeze({
   OWNER_NOT_HUMAN: "owner_not_human",
   ASSIGNEE_NOT_FOUND: "assignee_not_found",
   ASSIGNEE_NOT_UNIQUE: "assignee_not_unique",
-  ASSIGNEE_NOT_HUMAN: "assignee_not_human",
   EVENT_OWNER_FIELD_FORBIDDEN: "event_owner_field_forbidden",
   TODO_NOT_OPEN: "todo_not_open",
   TODO_NOT_IN_DOMAIN: "todo_not_in_domain",
@@ -176,9 +175,6 @@ function memberError(members, familyId, memberId, role) {
   const duplicateCode = role === "owner"
     ? DOMAIN_COMMAND_ERROR_CODES.OWNER_NOT_UNIQUE
     : DOMAIN_COMMAND_ERROR_CODES.ASSIGNEE_NOT_UNIQUE;
-  const nonHumanCode = role === "owner"
-    ? DOMAIN_COMMAND_ERROR_CODES.OWNER_NOT_HUMAN
-    : DOMAIN_COMMAND_ERROR_CODES.ASSIGNEE_NOT_HUMAN;
 
   if (matches.length === 0) return missingCode;
   if (matches.length !== 1) return duplicateCode;
@@ -187,7 +183,9 @@ function memberError(members, familyId, memberId, role) {
     return DOMAIN_COMMAND_ERROR_CODES.INVALID_INPUT;
   }
   if (member.familyId !== familyId) return DOMAIN_COMMAND_ERROR_CODES.FAMILY_MISMATCH;
-  return member.kind === "human" ? null : nonHumanCode;
+  return role === "owner" && member.kind !== "human"
+    ? DOMAIN_COMMAND_ERROR_CODES.OWNER_NOT_HUMAN
+    : null;
 }
 
 function domainError(domain, members) {
@@ -258,7 +256,7 @@ export function linkEventToDomain(command = {}) {
 
 /**
  * Links a todo under optimistic versions. Domain-owner todos inherit the
- * current owner; explicit todos keep their supplied same-family human assignee.
+ * current owner; explicit todos keep their supplied same-family human or agent assignee.
  */
 export function linkTodoToDomain(command = {}) {
   if (!isRecord(command)) return failure(DOMAIN_COMMAND_ERROR_CODES.INVALID_INPUT);
