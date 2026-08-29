@@ -38,12 +38,31 @@ const SAFE_ERROR_CODES = new Set([
   "version_conflict",
   "viewer_unauthorized",
 ]);
-const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
+const MAX_IDENTIFIER_LENGTH = 128;
+const SAFE_FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
+const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
 const INTERNAL_RESULT_KEYS = new Set(["nextState", "state", "snapshot", "error"]);
 const REVISE_PATCH_FIELDS = new Set(["proposedOwnerId", "expiresAt", "missingFields"]);
+const TRUSTED_OVERRIDE_FIELDS = new Set(["actorId", "familyId"]);
+const COMMAND_FIELDS = Object.freeze({
+  submit: Object.freeze(["handoverId", "expectedVersion", "idempotencyKey"]),
+  revise: Object.freeze(["handoverId", "expectedVersion", "patch", "idempotencyKey"]),
+  decline: Object.freeze(["handoverId", "expectedVersion", "idempotencyKey"]),
+  expire: Object.freeze(["handoverId", "expectedVersion", "now", "idempotencyKey"]),
+  accept: Object.freeze([
+    "handoverId",
+    "expectedHandoverVersion",
+    "expectedDomainVersion",
+    "now",
+    "idempotencyKey",
+  ]),
+  completeTodo: Object.freeze(["todoId", "expectedVersion", "idempotencyKey"]),
+});
 
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
+const isPositiveVersion = (value) => Number.isSafeInteger(value) && value > 0;
 
 function freezeDeep(value, seen = new WeakSet()) {
   if (value && typeof value === "object" && !seen.has(value)) {
@@ -95,7 +114,7 @@ function isDirectAppliedReceipt(receipt) {
 }
 
 function resolveCaller(caller) {
-  if (!isRecord(caller) || !isNonEmptyString(caller.actorId) || !isNonEmptyString(caller.familyId)) {
+  if (!isRecord(caller) || !isIdentifier(caller.actorId) || !isIdentifier(caller.familyId)) {
     return failure("invalid_caller_context");
   }
   return Object.freeze({ ok: true, actorId: caller.actorId, familyId: caller.familyId });
@@ -104,64 +123,110 @@ function resolveCaller(caller) {
 function resolveMembership(state, caller, errorCode) {
   if (!isRecord(state) || !Array.isArray(state.members)) return failure(errorCode);
   if (state.familyId !== undefined && state.familyId !== caller.familyId) return failure(errorCode);
-  const member = state.members.find((candidate) => isRecord(candidate)
-    && candidate.id === caller.actorId
-    && candidate.familyId === caller.familyId);
-  return member ? Object.freeze({ ok: true, member }) : failure(errorCode);
+  const matches = state.members.filter((candidate) => isRecord(candidate)
+    && candidate.id === caller.actorId);
+  if (matches.length !== 1) return failure(errorCode);
+  const [member] = matches;
+  if (member.familyId !== caller.familyId
+    || (member.status !== undefined && member.status !== "active")) {
+    return failure(errorCode);
+  }
+  return Object.freeze({ ok: true, member });
 }
 
-function safeIdentifier(value) {
-  return typeof value === "string" && SAFE_IDENTIFIER.test(value) ? value : null;
+function isIdentifier(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= MAX_IDENTIFIER_LENGTH;
 }
 
-function fieldValue(record, key) {
-  return isRecord(record) && Object.hasOwn(record, key)
-    ? Object.freeze({ present: true, value: record[key] })
-    : Object.freeze({ present: false });
+function isPlainRecord(value) {
+  if (!isRecord(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
-function reviseFingerprintFields(command) {
-  const patch = isRecord(command.patch) ? command.patch : null;
-  return Object.freeze({
-    patchIsRecord: patch !== null,
-    hasUnknownFields: patch !== null
-      && Object.keys(patch).some((key) => !REVISE_PATCH_FIELDS.has(key)),
-    proposedOwnerId: fieldValue(patch, "proposedOwnerId"),
-    expiresAt: fieldValue(patch, "expiresAt"),
-    missingFields: fieldValue(patch, "missingFields"),
+function hasClosedDataProperties(value, allowedFields, requiredFields = allowedFields) {
+  if (!isPlainRecord(value)) return false;
+  const keys = Reflect.ownKeys(value);
+  if (keys.some((key) => typeof key !== "string" || !allowedFields.has(key))) return false;
+  if ([...requiredFields].some((key) => !Object.hasOwn(value, key))) return false;
+  return keys.every((key) => {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    return descriptor?.enumerable === true && Object.hasOwn(descriptor, "value");
   });
 }
 
-const FINGERPRINT_FIELDS = Object.freeze({
-  submit: (command) => ({
-    handoverId: fieldValue(command, "handoverId"),
-    expectedVersion: fieldValue(command, "expectedVersion"),
-  }),
-  revise: (command) => ({
-    handoverId: fieldValue(command, "handoverId"),
-    expectedVersion: fieldValue(command, "expectedVersion"),
-    ...reviseFingerprintFields(command),
-  }),
-  decline: (command) => ({
-    handoverId: fieldValue(command, "handoverId"),
-    expectedVersion: fieldValue(command, "expectedVersion"),
-  }),
-  expire: (command) => ({
-    handoverId: fieldValue(command, "handoverId"),
-    expectedVersion: fieldValue(command, "expectedVersion"),
-    now: fieldValue(command, "now"),
-  }),
-  accept: (command) => ({
-    handoverId: fieldValue(command, "handoverId"),
-    expectedHandoverVersion: fieldValue(command, "expectedHandoverVersion"),
-    expectedDomainVersion: fieldValue(command, "expectedDomainVersion"),
-    now: fieldValue(command, "now"),
-  }),
-  completeTodo: (command) => ({
-    todoId: fieldValue(command, "todoId"),
-    expectedVersion: fieldValue(command, "expectedVersion"),
-  }),
-});
+function isDenseUniqueFieldList(value) {
+  if (!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor?.enumerable !== true || !Object.hasOwn(descriptor, "value")) return false;
+  }
+  return value.every((field) => typeof field === "string" && SAFE_FIELD_NAME.test(field))
+    && new Set(value).size === value.length;
+}
+
+function isRealIsoInstant(value) {
+  if (typeof value !== "string") return false;
+  const match = ISO_INSTANT.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const offsetHour = match[9] === undefined ? 0 : Number(match[10]);
+  const offsetMinute = match[9] === undefined ? 0 : Number(match[11]);
+  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const monthDays = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return month >= 1 && month <= 12
+    && day >= 1 && day <= monthDays[month - 1]
+    && hour <= 23 && minute <= 59 && second <= 59
+    && offsetHour <= 14 && offsetMinute <= 59
+    && (offsetHour < 14 || offsetMinute === 0)
+    && Number.isFinite(Date.parse(value));
+}
+
+function isValidIdempotencyKey(value) {
+  return isNonEmptyString(value) && value.length <= MAX_IDEMPOTENCY_KEY_LENGTH;
+}
+
+function isValidRevisionPatch(patch) {
+  if (!hasClosedDataProperties(patch, REVISE_PATCH_FIELDS, [])) return false;
+  if (Object.hasOwn(patch, "proposedOwnerId") && !isIdentifier(patch.proposedOwnerId)) return false;
+  if (Object.hasOwn(patch, "expiresAt")
+    && patch.expiresAt !== null
+    && !isRealIsoInstant(patch.expiresAt)) return false;
+  return !Object.hasOwn(patch, "missingFields") || isDenseUniqueFieldList(patch.missingFields);
+}
+
+function validCommandFields(operation, command) {
+  if (!isIdentifier(command.handoverId ?? command.todoId)
+    || !isValidIdempotencyKey(command.idempotencyKey)) return false;
+  if (operation === "accept") {
+    return isPositiveVersion(command.expectedHandoverVersion)
+      && isPositiveVersion(command.expectedDomainVersion)
+      && isRealIsoInstant(command.now);
+  }
+  if (!isPositiveVersion(command.expectedVersion)) return false;
+  if (operation === "revise") return isValidRevisionPatch(command.patch);
+  if (operation === "expire") return isRealIsoInstant(command.now);
+  return true;
+}
+
+function normalizeCommand(operation, caller, command) {
+  const fields = COMMAND_FIELDS[operation];
+  if (!fields) return null;
+  const allowedFields = new Set([...fields, ...TRUSTED_OVERRIDE_FIELDS]);
+  if (!hasClosedDataProperties(command, allowedFields, fields)
+    || !validCommandFields(operation, command)) return null;
+  const closedCommand = Object.fromEntries(fields.map((field) => [field, command[field]]));
+  return immutableClone({
+    ...closedCommand,
+    actorId: caller.actorId,
+    familyId: caller.familyId,
+  });
+}
 
 function stableSerialize(value) {
   if (value === null) return "null";
@@ -175,13 +240,13 @@ function stableSerialize(value) {
   return JSON.stringify({ unsupportedType: typeof value });
 }
 
-function commandFingerprint(operation, caller, command) {
-  const selectFields = FINGERPRINT_FIELDS[operation];
+function commandFingerprint(operation, command) {
+  const fields = Object.fromEntries(
+    Object.entries(command).filter(([key]) => key !== "idempotencyKey"),
+  );
   const closedPayload = {
     operation,
-    actorId: safeIdentifier(caller.actorId),
-    familyId: safeIdentifier(caller.familyId),
-    fields: typeof selectFields === "function" ? selectFields(command) : {},
+    fields,
   };
   const digest = createHash("sha256").update(stableSerialize(closedPayload)).digest("hex");
   return `sha256:${digest}`;
@@ -258,24 +323,20 @@ export function createResponsibilityService({ store, ports } = {}) {
   async function mutate(operation, port, caller, command) {
     const resolved = resolveCaller(caller);
     if (!resolved.ok) return resolved;
-    if (!isRecord(command)) return failure("invalid_request");
 
     let scopedCommand;
     try {
-      scopedCommand = immutableClone({
-        ...command,
-        actorId: resolved.actorId,
-        familyId: resolved.familyId,
-      });
+      scopedCommand = normalizeCommand(operation, resolved, command);
     } catch {
       return failure("invalid_request");
     }
-    if (!isNonEmptyString(scopedCommand.idempotencyKey)) return failure("invalid_request");
-    if (operation === "revise"
-      && isRecord(scopedCommand.patch)
-      && Object.keys(scopedCommand.patch).some((key) => !REVISE_PATCH_FIELDS.has(key))) {
-      return failure("invalid_request");
-    }
+    if (!scopedCommand) return failure("invalid_request");
+
+    // Resolve membership before calling a mutation port or touching revision/apply state.
+    const membershipProbe = await readSnapshot();
+    if (!membershipProbe.ok) return membershipProbe;
+    const initialMembership = resolveMembership(membershipProbe.state, resolved, "permission_denied");
+    if (!initialMembership.ok) return initialMembership;
 
     let expectedRevision;
     try {
@@ -286,6 +347,7 @@ export function createResponsibilityService({ store, ports } = {}) {
     }
     const loaded = await readSnapshot();
     if (!loaded.ok) return loaded;
+    // Recheck after reading the revision so a concurrent membership change fails closed.
     const membership = resolveMembership(loaded.state, resolved, "permission_denied");
     if (!membership.ok) return membership;
 
@@ -305,7 +367,7 @@ export function createResponsibilityService({ store, ports } = {}) {
         result: commandResult,
         expectedRevision,
         idempotencyKey: scopedCommand.idempotencyKey,
-        fingerprint: commandFingerprint(operation, resolved, scopedCommand),
+        fingerprint: commandFingerprint(operation, scopedCommand),
       }));
     } catch {
       return failure("store_unavailable");

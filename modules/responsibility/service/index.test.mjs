@@ -150,7 +150,7 @@ test("runs the golden lifecycle in order and commits pending_info and accepted s
   const suggestion = await service.suggest(caller, { text: "Please review a handover." });
   const submitted = await service.submit(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 1,
+    expectedVersion: 1,
     idempotencyKey: "submit-one",
   });
   assert.equal(store.inspect().state.handoverStatus, "pending_info");
@@ -158,7 +158,8 @@ test("runs the golden lifecycle in order and commits pending_info and accepted s
 
   const revised = await service.revise(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 2,
+    expectedVersion: 2,
+    patch: {},
     idempotencyKey: "revise-one",
   });
   const accepted = await service.accept(
@@ -167,6 +168,7 @@ test("runs the golden lifecycle in order and commits pending_info and accepted s
       handoverId: "handover-one",
       expectedHandoverVersion: 3,
       expectedDomainVersion: 1,
+      now: "2030-04-10T00:00:00.000Z",
       idempotencyKey: "accept-one",
     },
   );
@@ -200,14 +202,17 @@ test("runs the golden lifecycle in order and commits pending_info and accepted s
   assert.deepEqual(calls.map(({ name }) => name), [
     "store.readSnapshot",
     "port.analyzeResponsibility",
+    "store.readSnapshot",
     "store.currentRevision",
     "store.readSnapshot",
     "port.submitHandover",
     "store.applyResult",
+    "store.readSnapshot",
     "store.currentRevision",
     "store.readSnapshot",
     "port.reviseHandover",
     "store.applyResult",
+    "store.readSnapshot",
     "store.currentRevision",
     "store.readSnapshot",
     "port.acceptHandover",
@@ -247,22 +252,24 @@ test("failed and successful no-op results roll back without exposing unsafe erro
 
   const declined = await service.decline(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 2,
+    expectedVersion: 2,
     idempotencyKey: "decline-one",
   });
   const expired = await service.expire(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 2,
+    expectedVersion: 2,
+    now: "2030-04-10T00:00:00.000Z",
     idempotencyKey: "expire-one",
   });
   const expiredReplay = await service.expire(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 2,
+    expectedVersion: 2,
+    now: "2030-04-10T00:00:00.000Z",
     idempotencyKey: "expire-one",
   });
   const completed = await service.completeTodo(caller, {
     todoId: "todo-one",
-    expectedTodoVersion: 1,
+    expectedVersion: 1,
     idempotencyKey: "todo-one",
   });
 
@@ -347,8 +354,8 @@ test("forwards trusted scope and versions while preserving replay and conflict r
     handoverId: "handover-one",
     expectedHandoverVersion: 4,
     expectedDomainVersion: 7,
+    now: "2030-04-10T00:00:00.000Z",
     idempotencyKey: "same-key",
-    privateText: "private burden text",
   };
 
   const first = await service.accept({ actorId: "father", familyId: "family-one" }, command);
@@ -383,8 +390,14 @@ test("forwards trusted scope and versions while preserving replay and conflict r
   assert.match(applyCalls[0].request.fingerprint, /^sha256:[a-f0-9]{64}$/);
   assert.equal(applyCalls[0].request.fingerprint, applyCalls[1].request.fingerprint);
   assert.equal(applyCalls[0].request.fingerprint.includes("forged"), false);
-  assert.equal(applyCalls[0].request.fingerprint.includes("private"), false);
   assert.notEqual(applyCalls[0].request.fingerprint, applyCalls[2].request.fingerprint);
+
+  const unknownField = await service.accept(
+    { actorId: "father", familyId: "family-one" },
+    { ...command, idempotencyKey: "unknown-field", privateText: "private burden text" },
+  );
+  assert.equal(unknownField.error.code, "invalid_request");
+  assert.equal(received.length, 3);
 });
 
 test("resolves family membership before ports while allowing an Agent member to reach leaf policy", async () => {
@@ -415,7 +428,7 @@ test("resolves family membership before ports while allowing an Agent member to 
   const missingView = await service.view({ actorId: "missing", familyId: "family-one" });
   const wrongFamilyMutation = await service.submit(
     { actorId: "visitor", familyId: "family-two" },
-    { handoverId: "handover-one", expectedHandoverVersion: 1, idempotencyKey: "wrong-family" },
+    { handoverId: "handover-one", expectedVersion: 1, idempotencyKey: "wrong-family" },
   );
 
   assert.deepEqual(agentView.projection, { viewerId: "agent" });
@@ -424,6 +437,33 @@ test("resolves family membership before ports while allowing an Agent member to 
   assert.equal(viewCalls, 1);
   assert.equal(submitCalls, 0);
   assert.equal(calls.some(({ name }) => name === "store.applyResult"), false);
+});
+
+test("preserves the model contract's full bounded identifier charset", async () => {
+  const calls = [];
+  const store = createFakeStore({
+    familyId: "family.one",
+    members: [{ id: "mother.v1", familyId: "family.one", kind: "human" }],
+  }, calls);
+  let received;
+  const ports = createPorts(calls, {
+    submitHandover(_state, command) {
+      received = command;
+      return { ok: false, code: "invalid_transition" };
+    },
+  });
+  const service = createResponsibilityService({ store, ports });
+
+  const result = await service.submit(
+    { actorId: "mother.v1", familyId: "family.one" },
+    { handoverId: "handover.v1", expectedVersion: 1, idempotencyKey: "bounded-id" },
+  );
+
+  assert.equal(result.error.code, "invalid_transition");
+  assert.equal(received.actorId, "mother.v1");
+  assert.equal(received.familyId, "family.one");
+  assert.equal(received.handoverId, "handover.v1");
+  assert.equal(calls.some(({ name }) => name === "store.applyResult"), true);
 });
 
 test("maps unrecognized error codes to one stable non-content failure", async () => {
@@ -442,7 +482,7 @@ test("maps unrecognized error codes to one stable non-content failure", async ()
 
   const result = await service.submit(caller, {
     handoverId: "handover-one",
-    expectedHandoverVersion: 1,
+    expectedVersion: 1,
     idempotencyKey: "unknown-error",
   });
 
@@ -497,7 +537,7 @@ test("rejects wrapper and legacy store receipts without exposing nested state", 
 
     const result = await service.submit(caller, {
       handoverId: "handover-one",
-      expectedHandoverVersion: 1,
+      expectedVersion: 1,
       idempotencyKey: "receipt-shape",
     });
 
@@ -513,9 +553,9 @@ test("returns stable errors before dependencies can observe invalid caller or re
 
   const invalidCaller = await service.submit(
     { actorId: "mother" },
-    { idempotencyKey: "key-one", expectedHandoverVersion: 1 },
+    { idempotencyKey: "key-one", expectedVersion: 1 },
   );
-  const invalidRequest = await service.submit(caller, { expectedHandoverVersion: 1 });
+  const invalidRequest = await service.submit(caller, { expectedVersion: 1 });
 
   assert.equal(invalidCaller.error.code, "invalid_caller_context");
   assert.equal(invalidRequest.error.code, "invalid_request");

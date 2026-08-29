@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  acceptFixtureHandover,
   createGoldenResponsibilityFixture,
   createResponsibilityPorts,
   createResponsibilityService,
@@ -441,15 +442,226 @@ test("fails closed before pending_ack for non-unique or non-human proposed owner
   );
 });
 
+test("rejects ambiguous, cross-family duplicate, and inactive actors before mutation effects", async () => {
+  const cases = [
+    {
+      label: "same-family duplicate",
+      mutate(state) {
+        state.members.push({ ...state.members.find((member) => member.id === "mother"), version: 2 });
+      },
+    },
+    {
+      label: "cross-family duplicate",
+      mutate(state) {
+        state.members.push({
+          ...state.members.find((member) => member.id === "mother"),
+          familyId: "family-other",
+        });
+      },
+    },
+    {
+      label: "inactive actor",
+      mutate(state) {
+        state.members.find((member) => member.id === "mother").status = "inactive";
+      },
+    },
+  ];
+
+  for (const invalidCase of cases) {
+    const state = structuredClone(consentedFixture());
+    invalidCase.mutate(state);
+    const backingStore = createResponsibilityStore(state);
+    const basePorts = createResponsibilityPorts({ provider: goldenScenarioProvider });
+    let currentRevisionCalls = 0;
+    let applyCalls = 0;
+    let portCalls = 0;
+    const store = {
+      readSnapshot: () => backingStore.readSnapshot(),
+      currentRevision() {
+        currentRevisionCalls += 1;
+        return backingStore.currentRevision();
+      },
+      applyResult(input) {
+        applyCalls += 1;
+        return backingStore.applyResult(input);
+      },
+    };
+    const ports = {
+      ...basePorts,
+      submitHandover(...args) {
+        portCalls += 1;
+        return basePorts.submitHandover(...args);
+      },
+    };
+    const service = createResponsibilityService({ store, ports });
+    const result = await service.submit(mother, {
+      handoverId: HANDOVER_ID,
+      expectedVersion: 1,
+      idempotencyKey: `invalid-actor-${invalidCase.label}`,
+    });
+
+    assert.equal(result.error.code, "permission_denied", invalidCase.label);
+    assert.equal(currentRevisionCalls, 0, invalidCase.label);
+    assert.equal(portCalls, 0, invalidCase.label);
+    assert.equal(applyCalls, 0, invalidCase.label);
+    assert.equal(backingStore.currentRevision(), 0, invalidCase.label);
+    assert.equal(findById(backingStore.readSnapshot().domains, DOMAIN_ID).accountableOwnerId, "mother");
+  }
+});
+
+test("rejects non-plain and non-real mutation clocks before Store or ports", async () => {
+  const backingStore = createResponsibilityStore(consentedFixture());
+  const basePorts = createResponsibilityPorts({ provider: goldenScenarioProvider });
+  let storeCalls = 0;
+  let portCalls = 0;
+  const store = {
+    readSnapshot() {
+      storeCalls += 1;
+      return backingStore.readSnapshot();
+    },
+    currentRevision() {
+      storeCalls += 1;
+      return backingStore.currentRevision();
+    },
+    applyResult(input) {
+      storeCalls += 1;
+      return backingStore.applyResult(input);
+    },
+  };
+  const ports = {
+    ...basePorts,
+    expireHandover(...args) {
+      portCalls += 1;
+      return basePorts.expireHandover(...args);
+    },
+    reviseHandover(...args) {
+      portCalls += 1;
+      return basePorts.reviseHandover(...args);
+    },
+  };
+  const service = createResponsibilityService({ store, ports });
+  const invalidClocks = [
+    new Date("2030-04-11T00:00:00.000Z"),
+    new Date("2030-04-13T00:00:00.000Z"),
+    new Map([["now", "2030-04-11T00:00:00.000Z"]]),
+    new Set(["2030-04-11T00:00:00.000Z"]),
+    /2030-04-11/u,
+    () => "2030-04-11T00:00:00.000Z",
+    "2030-02-30T00:00:00.000Z",
+    "tomorrow",
+  ];
+
+  for (const now of invalidClocks) {
+    const result = await service.expire(mother, {
+      handoverId: HANDOVER_ID,
+      expectedVersion: 1,
+      now,
+      idempotencyKey: "invalid-clock-same-key",
+    });
+    assert.equal(result.error.code, "invalid_request");
+    assert.equal(Object.hasOwn(result, "replayed"), false);
+  }
+  const invalidExpiry = await service.revise(mother, {
+    handoverId: HANDOVER_ID,
+    expectedVersion: 1,
+    patch: { expiresAt: "tomorrow" },
+    idempotencyKey: "invalid-expiry",
+  });
+  assert.equal(invalidExpiry.error.code, "invalid_request");
+  assert.equal(storeCalls, 0);
+  assert.equal(portCalls, 0);
+  assert.equal(backingStore.currentRevision(), 0);
+});
+
+test("fixture acceptance revalidates one active same-family human proposed owner", () => {
+  const cases = [
+    {
+      label: "same-family duplicate",
+      mutate(state) {
+        state.members.push({ ...state.members.find((member) => member.id === "father"), version: 2 });
+      },
+      actorId: "father",
+    },
+    {
+      label: "cross-family duplicate",
+      mutate(state) {
+        state.members.push({
+          ...state.members.find((member) => member.id === "father"),
+          familyId: "family-other",
+        });
+      },
+      actorId: "father",
+    },
+    {
+      label: "inactive human",
+      mutate(state) {
+        state.members.find((member) => member.id === "father").status = "inactive";
+      },
+      actorId: "father",
+    },
+    {
+      label: "agent",
+      mutate(state) {
+        state.handovers[0].proposedOwnerId = "agent";
+        state.handovers[0].confirmationRequiredFromId = "agent";
+      },
+      actorId: "agent",
+    },
+  ];
+
+  for (const invalidCase of cases) {
+    const state = structuredClone(consentedFixture());
+    state.handovers[0] = {
+      ...state.handovers[0],
+      status: "pending_ack",
+      missingFields: [],
+      confirmationRequiredFromId: "father",
+      expectedDomainVersion: 1,
+      expiresAt: "2030-04-20T00:00:00.000Z",
+      version: 3,
+    };
+    invalidCase.mutate(state);
+    const result = acceptFixtureHandover(state, {
+      actorId: invalidCase.actorId,
+      handoverId: HANDOVER_ID,
+      expectedHandoverVersion: 3,
+      expectedDomainVersion: 1,
+      now: "2030-04-10T00:00:00.000Z",
+      idempotencyKey: `invalid-accept-${invalidCase.label}`,
+    });
+
+    assert.equal(result.ok, false, invalidCase.label);
+    assert.equal(result.error.code, "permission_denied", invalidCase.label);
+    assert.strictEqual(result.nextState, state, invalidCase.label);
+    assert.equal(findById(state.domains, DOMAIN_ID).accountableOwnerId, "mother");
+  }
+});
+
 test("preserves terminal reminders and re-derives domain reviews on acceptance", async () => {
   const state = structuredClone(consentedFixture());
-  state.domainReviews = [{
-    id: "review-grandmother-follow-up",
-    familyId: FAMILY_ID,
-    domainId: DOMAIN_ID,
-    version: 1,
-    scheduledAt: null,
-  }];
+  state.domainReviews = [
+    {
+      id: "review-grandmother-follow-up",
+      familyId: FAMILY_ID,
+      domainId: DOMAIN_ID,
+      version: 1,
+      scheduledAt: null,
+    },
+    {
+      id: "review-already-completed",
+      familyId: FAMILY_ID,
+      domainId: DOMAIN_ID,
+      version: 1,
+      scheduledAt: null,
+    },
+    {
+      id: "review-new-version",
+      familyId: FAMILY_ID,
+      domainId: DOMAIN_ID,
+      version: 2,
+      scheduledAt: null,
+    },
+  ];
   state.reminders.push({
     id: "event:event-grandmother-follow-up:grandmother:1",
     sourceType: "event",
@@ -457,6 +669,24 @@ test("preserves terminal reminders and re-derives domain reviews on acceptance",
     sourceVersion: 1,
     routingBasis: "event_participant",
     recipientId: "grandmother",
+    status: "completed",
+  });
+  state.reminders.push({
+    id: "domain_review:review-already-completed:mother:1",
+    sourceType: "domain_review",
+    sourceId: "review-already-completed",
+    sourceVersion: 1,
+    routingBasis: "domain_owner",
+    recipientId: "mother",
+    status: "completed",
+  });
+  state.reminders.push({
+    id: "domain_review:review-new-version:mother:1",
+    sourceType: "domain_review",
+    sourceId: "review-new-version",
+    sourceVersion: 1,
+    routingBasis: "domain_owner",
+    recipientId: "mother",
     status: "completed",
   });
   const { service, store } = createHarness(goldenScenarioProvider, state);
@@ -488,7 +718,15 @@ test("preserves terminal reminders and re-derives domain reviews on acceptance",
   assert.equal(reminders.find((item) => item.sourceType === "event").status, "completed");
   assert.equal(reminders.find((item) => item.sourceType === "handover").status, "completed");
   const reviewPlans = reminders.filter((item) => item.sourceType === "domain_review");
-  assert.deepEqual(reviewPlans.map((item) => [item.recipientId, item.status]), [["father", "pending"]]);
+  assert.deepEqual(
+    reviewPlans.map((item) => [item.sourceId, item.sourceVersion, item.recipientId, item.status]),
+    [
+      ["review-already-completed", 1, "mother", "completed"],
+      ["review-grandmother-follow-up", 1, "father", "pending"],
+      ["review-new-version", 2, "father", "pending"],
+      ["review-new-version", 1, "mother", "completed"],
+    ],
+  );
 });
 
 test("Store-facing ports retain complete success snapshots but strip failure snapshots", () => {

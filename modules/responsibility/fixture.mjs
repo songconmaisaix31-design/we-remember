@@ -160,6 +160,18 @@ export function expireFixtureHandover(state, command = {}) {
 
 /** Normalizes acceptance failure into the same unchanged-snapshot reducer contract. */
 export function acceptFixtureHandover(state, command = {}) {
+  const handover = Array.isArray(state?.handovers)
+    ? state.handovers.find((item) => item?.id === command?.handoverId)
+    : undefined;
+  if (handover) {
+    const proposedOwner = resolveUniqueMember(state, handover.proposedOwnerId);
+    if (!proposedOwner
+      || proposedOwner.familyId !== handover.familyId
+      || proposedOwner.kind !== "human"
+      || !isActiveMember(proposedOwner)) {
+      return denied(state);
+    }
+  }
   const result = acceptHandover(state, command);
   return result.ok ? result : unchanged(state, result);
 }
@@ -180,7 +192,10 @@ function reminderIdentity(plan) {
     plan.sourceId,
     plan.sourceVersion,
     plan.routingBasis,
-    plan.recipientId,
+    // Events can have multiple simultaneous participants. The other P0 sources
+    // have one semantic recipient, so owner/confirmer changes must not revive a
+    // completed or cancelled plan for the same source version.
+    plan.sourceType === "event" ? plan.recipientId : null,
   ]);
 }
 
