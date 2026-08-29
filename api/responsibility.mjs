@@ -95,6 +95,15 @@ export default async function handler(request, response) {
       }, { Allow: "GET, POST" });
       return;
     }
+    const declaredLength = Number(request.headers?.["content-length"] ?? 0);
+    if (!Number.isSafeInteger(declaredLength) || declaredLength < 0) {
+      send(response, safeFailure("invalid_request"));
+      return;
+    }
+    if (declaredLength > MAX_BODY_BYTES) {
+      send(response, safeFailure("request_too_large"));
+      return;
+    }
     const contentType = String(request.headers?.["content-type"] ?? "").toLowerCase();
     if (!/^application\/json(?:\s*;|$)/u.test(contentType)) {
       send(response, {
