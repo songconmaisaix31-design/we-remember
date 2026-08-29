@@ -163,6 +163,7 @@ const appendResponsibilitySuggestion = (payload) => {
       </article>
     </div>`;
   feed.append(wrapper);
+  wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
 };
 
 const analyzeResponsibilityMessage = async (text) => {
@@ -459,14 +460,29 @@ document.querySelectorAll("[data-channel-detail]").forEach((button) => {
 });
 
 document.body.dataset.sessionStatus = "ready";
+const reducedMotionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
+let brandIntroDismissed = false;
+let brandIntroFallbackId;
 const dismissBrandIntro = () => {
+  if (brandIntroDismissed) return;
+  brandIntroDismissed = true;
+  if (brandIntroFallbackId !== undefined) window.clearTimeout(brandIntroFallbackId);
+  reducedMotionPreference.removeEventListener("change", handleReducedMotionChange);
+  brandIntro?.removeEventListener("animationend", dismissBrandIntro);
+  brandIntro?.removeEventListener("animationcancel", dismissBrandIntro);
   brandIntro?.remove();
   document.body.classList.remove("has-brand-intro");
 };
-if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+const handleReducedMotionChange = (event) => {
+  if (event.matches) dismissBrandIntro();
+};
+if (!brandIntro || reducedMotionPreference.matches) {
   dismissBrandIntro();
 } else {
   brandIntro?.addEventListener("animationend", dismissBrandIntro, { once: true });
+  brandIntro?.addEventListener("animationcancel", dismissBrandIntro, { once: true });
+  reducedMotionPreference.addEventListener("change", handleReducedMotionChange);
+  brandIntroFallbackId = window.setTimeout(dismissBrandIntro, 5200);
 }
 renderSharedState();
 setActiveView("agent", { focusHeading: false });

@@ -146,7 +146,7 @@ button { color: inherit; }
 .date-strip .is-today { color: #fff0eb; background: var(--accent); box-shadow: 0 12px 26px rgba(207, 80, 61, 0.23); }
 .date-strip .is-today strong { color: white; }
 
-.conversation { display: grid; gap: 22px; }
+.conversation { display: grid; gap: var(--space-xl); }
 #conversation-feed { display: grid; gap: var(--space-xl); }
 .message { display: flex; gap: 12px; align-items: flex-start; animation: enter 260ms var(--ease) both; }
 .agent-orb { display: grid; flex: 0 0 auto; width: 34px; height: 34px; place-items: center; color: white; border-radius: 12px; background: var(--ink); box-shadow: 0 9px 24px rgba(34, 31, 27, 0.16); }

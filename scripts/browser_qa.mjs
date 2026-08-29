@@ -84,7 +84,7 @@ if (expectsOpening !== openingState.visible || (expectsOpening && !openingState.
   || !openingState.staticLogoLoaded) {
   throw new Error(`Brand opening failed: ${JSON.stringify({ expectsOpening, openingState })}`);
 }
-if (scenario !== "opening" && scenario !== "opening-complete" && openingState.present) {
+if (scenario !== "opening" && scenario !== "opening-complete" && scenario !== "reduced-change" && openingState.present) {
   await evaluate("document.querySelector('#brand-intro').dispatchEvent(new AnimationEvent('animationend')); true");
   await new Promise((resolve) => setTimeout(resolve, 30));
   if (await evaluate("document.querySelector('#brand-intro') !== null")) {
@@ -211,6 +211,15 @@ async function assertConversationGeometry() {
     const input = document.querySelector('#agent-input');
     const mobileNav = document.querySelector('.mobile-nav');
     const dynamicMessages = [...feed.children].filter(element => element.matches('.message'));
+    const animatedElements = dynamicMessages.flatMap(message => [
+      message,
+      ...message.querySelectorAll('.draft-card, .responsibility-suggestion-card')
+    ]);
+    const enterAnimations = animatedElements.flatMap(element => element.getAnimations());
+    await Promise.all(enterAnimations.map(animation => animation.finished.catch(() => undefined)));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const introMessage = conversation.querySelector('.intro-message');
     const messageGaps = dynamicMessages.slice(1).map((message, index) => {
       const previousRect = dynamicMessages[index].getBoundingClientRect();
       return message.getBoundingClientRect().top - previousRect.bottom;
@@ -243,6 +252,8 @@ async function assertConversationGeometry() {
     return JSON.stringify({
       desktop,
       dynamicMessageCount: dynamicMessages.length,
+      configuredConversationGap: parseFloat(getComputedStyle(conversation).rowGap),
+      introToFirstGap: dynamicMessages[0].getBoundingClientRect().top - introMessage.getBoundingClientRect().bottom,
       configuredMessageGap: parseFloat(getComputedStyle(feed).rowGap),
       messageGaps,
       cardGaps,
@@ -264,6 +275,8 @@ async function assertConversationGeometry() {
   const near = (value, expected) => Math.abs(value - expected) <= 1.5;
   if (
     layout.dynamicMessageCount < 4 ||
+    !near(layout.configuredConversationGap, 32) ||
+    !near(layout.introToFirstGap, 32) ||
     !near(layout.configuredMessageGap, 32) ||
     layout.messageGaps.some(gap => !near(gap, 32)) ||
     layout.cardGaps.length < 2 ||
@@ -455,6 +468,39 @@ if (scenario === "opening-complete") {
   process.exit(0);
 }
 
+if (scenario === "reduced-change") {
+  const beforeChange = JSON.parse(await evaluate(`JSON.stringify({
+    openingPresent: document.querySelector('#brand-intro') !== null,
+    scrollLocked: document.body.classList.contains('has-brand-intro')
+  })`));
+  await send("Emulation.setEmulatedMedia", {
+    features: [{ name: "prefers-reduced-motion", value: "reduce" }],
+  });
+  const afterChange = JSON.parse(await evaluate(`new Promise(resolve => {
+    const startedAt = performance.now();
+    const inspect = () => {
+      const state = {
+        openingRemoved: document.querySelector('#brand-intro') === null,
+        scrollLockRemoved: !document.body.classList.contains('has-brand-intro'),
+        bodyOverflowY: getComputedStyle(document.body).overflowY,
+        elapsedMs: performance.now() - startedAt
+      };
+      if ((state.openingRemoved && state.scrollLockRemoved) || state.elapsedMs >= 250) {
+        resolve(JSON.stringify(state));
+      } else {
+        requestAnimationFrame(inspect);
+      }
+    };
+    inspect();
+  })`));
+  if (!beforeChange.openingPresent || !beforeChange.scrollLocked || !afterChange.openingRemoved
+    || !afterChange.scrollLockRemoved || afterChange.bodyOverflowY === "hidden") {
+    throw new Error(`Runtime reduced-motion cleanup failed: ${JSON.stringify({ beforeChange, afterChange })}`);
+  }
+  await captureResult({ openingState, beforeChange, afterChange, directEntry });
+  process.exit(0);
+}
+
 if (scenario === "identity" || scenario === "identity-reduced") {
   await captureResult({ openingState, directEntry });
   process.exit(0);
@@ -585,24 +631,72 @@ if (draftReady.drafts !== 1 || draftReady.events !== 2 || !draftReady.receiptHid
 await evaluate("document.querySelector('.confirm-draft').click(); true");
 await new Promise((resolve) => setTimeout(resolve, 250));
 
+const responsibilityScrollScenario = scenario === "responsibility-scroll";
+if (responsibilityScrollScenario) {
+  await evaluate(`(() => {
+    const conversation = document.querySelector('#agent-view .conversation');
+    if (window.innerWidth >= 961) conversation.scrollTop = 0;
+    else window.scrollTo(0, 0);
+    return true;
+  })()`);
+}
+const secondMessage = responsibilityScrollScenario
+  ? "奶奶复诊的安排一直由我负责，我有点撑不住了，想请爸爸完整接手"
+  : "周六下午四点整理家庭相册，开始前提醒我";
 await evaluate(`(() => {
   const input = document.querySelector('#agent-input');
-  input.value = '周六下午四点整理家庭相册，开始前提醒我';
+  input.value = ${JSON.stringify(secondMessage)};
   input.dispatchEvent(new Event('input', { bubbles: true }));
   document.querySelector('#composer-form').requestSubmit();
   return true;
 })()`);
-const secondDraftReady = await evaluate(`new Promise(resolve => {
+const secondCardReady = await evaluate(`new Promise(resolve => {
   const deadline = Date.now() + 2500;
   const check = () => {
-    if (document.querySelectorAll('.draft-card').length === 2) resolve(true);
+    const ready = ${responsibilityScrollScenario
+      ? "document.querySelector('.responsibility-suggestion-card') !== null"
+      : "document.querySelectorAll('.draft-card').length === 2"};
+    if (ready) resolve(true);
     else if (Date.now() >= deadline) resolve(false);
     else setTimeout(check, 50);
   };
   check();
 })`);
-if (!secondDraftReady) throw new Error("Second schedule draft did not render for geometry QA");
-await new Promise((resolve) => setTimeout(resolve, 320));
+if (!secondCardReady) throw new Error("Second conversation card did not render for geometry QA");
+let responsibilityAutoScroll = null;
+if (responsibilityScrollScenario) {
+  responsibilityAutoScroll = JSON.parse(await evaluate(`(async () => {
+    const conversation = document.querySelector('#agent-view .conversation');
+    const composer = document.querySelector('#composer-form');
+    const wrapper = document.querySelector('.responsibility-suggestion-message');
+    await Promise.all(wrapper.getAnimations().map(animation => animation.finished.catch(() => undefined)));
+    await new Promise(resolve => {
+      let previous = -1;
+      let stableFrames = 0;
+      let frames = 0;
+      const inspect = () => {
+        const position = window.innerWidth >= 961 ? conversation.scrollTop : window.scrollY;
+        stableFrames = Math.abs(position - previous) < 0.5 ? stableFrames + 1 : 0;
+        previous = position;
+        frames += 1;
+        if (stableFrames >= 3 || frames >= 90) resolve();
+        else requestAnimationFrame(inspect);
+      };
+      requestAnimationFrame(inspect);
+    });
+    const wrapperRect = wrapper.getBoundingClientRect();
+    const conversationRect = conversation.getBoundingClientRect();
+    const composerRect = composer.getBoundingClientRect();
+    return JSON.stringify({
+      scrollPosition: window.innerWidth >= 961 ? conversation.scrollTop : window.scrollY,
+      wrapperVisible: wrapperRect.top >= Math.max(0, conversationRect.top) - 1 && wrapperRect.bottom <= window.innerHeight,
+      wrapperAboveComposer: wrapperRect.bottom <= composerRect.top - 12
+    });
+  })()`));
+  if (responsibilityAutoScroll.scrollPosition <= 0 || !responsibilityAutoScroll.wrapperVisible || !responsibilityAutoScroll.wrapperAboveComposer) {
+    throw new Error(`Responsibility suggestion did not auto-scroll into view: ${JSON.stringify(responsibilityAutoScroll)}`);
+  }
+}
 const conversationGeometry = await assertConversationGeometry();
 
 const metrics = JSON.parse(await evaluate(`JSON.stringify({
@@ -625,4 +719,4 @@ if ((width <= 960) !== metrics.mobileNavVisible) {
   throw new Error(`Responsive navigation failed: ${JSON.stringify(metrics)}`);
 }
 
-await captureResult({ ...metrics, conversationGeometry });
+await captureResult({ ...metrics, conversationGeometry, responsibilityAutoScroll });
