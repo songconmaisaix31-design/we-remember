@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -33,6 +34,15 @@ require(HTML, 'id="voice-message-button"', "auto-send voice message action")
 require(HTML, 'id="timeline"', "schedule timeline")
 require(HTML, 'id="receipt-card"', "notification receipt")
 require(HTML, 'id="integrations-dialog"', "connection center dialog")
+require(HTML, 'id="agent-view"', "Agent destination")
+require(HTML, 'id="schedule-view"', "family schedule destination")
+require(HTML, 'id="people-view"', "family and notifications destination")
+require(HTML, 'id="schedule-day-filter"', "schedule day filter")
+require(HTML, 'data-member-filter', "schedule member filters")
+require(HTML, 'id="schedule-event-list"', "shared schedule event list")
+require(HTML, 'id="people-member-list"', "family member list")
+require(HTML, 'id="notification-receipt-list"', "notification receipt list")
+require(HTML, 'data-create-with-agent', "route back to Agent")
 require(HTML, 'id="auth-gate"', "signed-out gate")
 require(HTML, 'id="family-key-input"', "family-key input")
 require(HTML, 'id="matched-family"', "unique family confirmation")
@@ -48,6 +58,7 @@ require(JS, "window.SpeechRecognition || window.webkitSpeechRecognition", "speec
 require(JS, 'mode === "voice_message"', "voice auto-send branch")
 require(JS, 'dataset.confirmed = "true"', "confirmation gate")
 require(JS, "appendTimelineEvent(draft)", "confirmed schedule sync")
+require(JS, "setActiveView", "shared application view routing")
 require(JS, "window.sessionStorage", "session-only prototype state")
 require(JS, 'const DEMO_FAMILY_KEY = "DEMO-HOME"', "public family-key fixture")
 require(JS, 'file.size > 2 * 1024 * 1024', "avatar upload size bound")
@@ -98,6 +109,23 @@ if "@we-remember/robot-adapter" in HTML or "@we-remember/robot-adapter" in JS:
 for removed_fragment in ('id="feishu-sign-in"', 'id="mode-switch"', 'data-visual-mode="family"', "ROLE_ASSETS"):
     if removed_fragment in HTML or removed_fragment in JS:
         raise AssertionError(f"Removed identity/workspace direction still present: {removed_fragment}")
+
+for view_name in ("agent", "schedule", "people", "integrations"):
+    navigation_items = re.findall(
+        rf'<(?:button|a)\b[^>]*\bdata-view=["\']{view_name}["\'][^>]*>',
+        HTML,
+        flags=re.IGNORECASE,
+    )
+    if len(navigation_items) < 2:
+        raise AssertionError(
+            f"Expected desktop and mobile navigation for {view_name}, found {len(navigation_items)}"
+        )
+    if any(re.search(r'href=["\']\s*#["\']', item, flags=re.IGNORECASE) for item in navigation_items):
+        raise AssertionError(f"Primary navigation must not use a placeholder target: {view_name}")
+
+for destination_id in ("agent-view", "schedule-view", "people-view"):
+    if len(re.findall(rf'\bid=["\']{destination_id}["\']', HTML)) != 1:
+        raise AssertionError(f"Destination id must be unique: {destination_id}")
 
 roles = ("mother", "father", "daughter", "son", "grandfather", "grandmother")
 static_states = ("family", "work")
