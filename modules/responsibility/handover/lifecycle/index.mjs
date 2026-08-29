@@ -2,7 +2,6 @@ export const HANDOVER_REQUIRED_FIELDS = Object.freeze([
   "domainId",
   "fromOwnerId",
   "proposedOwnerId",
-  "expiresAt",
 ]);
 
 export const HandoverCode = Object.freeze({
@@ -38,7 +37,7 @@ function result(ok, code, domain, handover) {
 }
 
 function versionMatches(entity, expectedVersion) {
-  return expectedVersion === undefined || expectedVersion === entity.version;
+  return Number.isInteger(expectedVersion) && expectedVersion > 0 && expectedVersion === entity.version;
 }
 
 function hasValue(value) {
@@ -96,7 +95,7 @@ export function submitHandover({ domain, handover, actorId, expectedVersion } = 
   if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
 
   const next = nextPendingHandover({ ...handover, version: handover.version + 1 });
-  return result(next.status === "pending_info" ? false : true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
+  return result(true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
 }
 
 /** Revises only proposal fields, invalidates acknowledgements, and recomputes the pending state. */
@@ -120,7 +119,7 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
     acknowledgements: [],
     version: handover.version + 1,
   });
-  return result(next.status === "pending_info" ? false : true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
+  return result(true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
 }
 
 /** Declines only a current acknowledgement request; ownership remains untouched. */
@@ -139,12 +138,13 @@ export function declineHandover({ domain, handover, actorId, expectedVersion } =
   });
 }
 
-/** Expires an overdue pending handover; equality with expiry is not overdue. */
+/** Expires an overdue pending handover; null expiry and equality with expiry are not overdue. */
 export function expireHandover({ domain, handover, now, expectedVersion } = {}) {
   if (!domain || !handover || !PENDING_STATUSES.has(handover.status) || !belongsToDomain(handover, domain)) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
+  if (handover.expiresAt === null) return result(false, HandoverCode.NOT_EXPIRED, domain, handover);
   const expiresAt = Date.parse(handover.expiresAt);
   const currentTime = Date.parse(now);
   if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || currentTime <= expiresAt) {
