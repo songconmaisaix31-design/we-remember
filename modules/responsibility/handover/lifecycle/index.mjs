@@ -109,6 +109,9 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
   if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).some((key) => !REVISABLE_FIELDS.has(key))) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
+  if (Object.hasOwn(patch, "proposedOwnerId") && actorId !== handover.fromOwnerId) {
+    return result(false, HandoverCode.PERMISSION, domain, handover);
+  }
   if ("missingFields" in patch && !hasUniqueSafeMissingFields(patch.missingFields)) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
