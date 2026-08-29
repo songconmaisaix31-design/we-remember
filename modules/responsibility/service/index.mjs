@@ -87,6 +87,16 @@ function publicResult(result) {
   return freezeDeep(copy);
 }
 
+function isDirectAppliedReceipt(receipt) {
+  if (!isRecord(receipt) || typeof receipt.ok !== "boolean") return false;
+  if (Object.hasOwn(receipt, "result") || Object.hasOwn(receipt, "idempotent")) return false;
+  if (receipt.ok === false) return true;
+  return typeof receipt.committed === "boolean"
+    && typeof receipt.replayed === "boolean"
+    && Number.isSafeInteger(receipt.revision)
+    && receipt.revision >= 0;
+}
+
 function resolveCaller(caller) {
   if (!isRecord(caller) || !isNonEmptyString(caller.actorId) || !isNonEmptyString(caller.familyId)) {
     return failure("invalid_caller_context");
@@ -133,20 +143,11 @@ function assertDependencies(store, ports) {
   if (!validStore || !validPorts) throw new TypeError("Invalid responsibility service dependencies.");
 }
 
-function addApplyMetadata(result, applied) {
-  if (result.ok === false || !isRecord(applied)) return result;
-  const metadata = {};
-  if (typeof applied.committed === "boolean") metadata.committed = applied.committed;
-  if (Number.isSafeInteger(applied.revision) && applied.revision >= 0) metadata.revision = applied.revision;
-  if (typeof applied.idempotent === "boolean") metadata.idempotent = applied.idempotent;
-  return freezeDeep({ ...result, ...metadata });
-}
-
 /**
  * Creates the server-facing orchestration boundary for the P0 responsibility engine.
  * Ports are pure reducers over a frozen snapshot. `store.applyResult` is the only
- * persistence boundary and may return either the applied command result directly or
- * `{ ok, result, committed, revision, idempotent }` for commit/replay metadata.
+ * persistence boundary and returns the applied command result directly with
+ * `committed`, `replayed`, and `revision` metadata.
  */
 export function createResponsibilityService({ store, ports } = {}) {
   assertDependencies(store, ports);
@@ -251,11 +252,8 @@ export function createResponsibilityService({ store, ports } = {}) {
     } catch {
       return failure("store_unavailable");
     }
-    if (!isRecord(applied)) return failure("invalid_result");
-    if (applied.ok === false) return publicResult(applied);
-
-    const exposed = publicResult(isRecord(applied.result) ? applied.result : commandResult);
-    return addApplyMetadata(exposed, applied);
+    if (!isDirectAppliedReceipt(applied)) return failure("invalid_result");
+    return publicResult(applied);
   }
 
   return Object.freeze({

@@ -55,17 +55,35 @@ function createFakeStore(initialState, calls, { freezeSnapshots = true } = {}) {
         if (prior.fingerprint !== request.fingerprint) {
           return { ok: false, error: { code: "idempotency_conflict" } };
         }
-        return { ok: true, result: prior.result, committed: false, revision, idempotent: true };
+        return {
+          ...prior.commandResult,
+          committed: false,
+          replayed: true,
+          revision,
+        };
       }
 
-      if (request.result.ok === true && request.result.nextState !== undefined) {
-        state = prepare(request.result.nextState);
-        revision += 1;
+      if (request.result.ok === true) {
+        const committed = request.result.nextState !== undefined;
+        if (committed) {
+          state = prepare(request.result.nextState);
+          revision += 1;
+        }
         const storedResult = freezeDeep(clone(request.result));
-        idempotency.set(request.idempotencyKey, { fingerprint: request.fingerprint, result: storedResult });
-        return { ok: true, result: storedResult, committed: true, revision, idempotent: false };
+        idempotency.set(request.idempotencyKey, { fingerprint: request.fingerprint, commandResult: storedResult });
+        return {
+          ...storedResult,
+          committed,
+          replayed: false,
+          revision,
+        };
       }
-      return { ok: true, result: request.result, committed: false, revision, idempotent: false };
+      return {
+        ...request.result,
+        committed: false,
+        replayed: false,
+        revision,
+      };
     },
     inspect() {
       return { state, revision };
@@ -156,12 +174,24 @@ test("runs the golden lifecycle in order and commits pending_info and accepted s
 
   assert.equal(suggestion.status, "suggested");
   assert.deepEqual(
-    { code: submitted.code, status: submitted.status, committed: submitted.committed },
-    { code: "incomplete", status: "pending_info", committed: true },
+    {
+      code: submitted.code,
+      status: submitted.status,
+      committed: submitted.committed,
+      replayed: submitted.replayed,
+      revision: submitted.revision,
+    },
+    { code: "incomplete", status: "pending_info", committed: true, replayed: false, revision: 2 },
   );
   assert.equal(revised.committed, true);
+  assert.equal(revised.replayed, false);
+  assert.equal(revised.revision, 3);
   assert.equal(accepted.committed, true);
+  assert.equal(accepted.replayed, false);
+  assert.equal(accepted.revision, 4);
   assert.equal("nextState" in accepted, false);
+  assert.equal("result" in accepted, false);
+  assert.equal("idempotent" in accepted, false);
   assert.deepEqual(viewed.projection, { ownerId: "father", viewerId: "father" });
   assert.deepEqual(store.inspect(), {
     state: freezeDeep(responsibilityState({ ownerId: "father", handoverStatus: "accepted" })),
@@ -225,6 +255,11 @@ test("failed and successful no-op results roll back without exposing unsafe erro
     expectedHandoverVersion: 2,
     idempotencyKey: "expire-one",
   });
+  const expiredReplay = await service.expire(caller, {
+    handoverId: "handover-one",
+    expectedHandoverVersion: 2,
+    idempotencyKey: "expire-one",
+  });
   const completed = await service.completeTodo(caller, {
     todoId: "todo-one",
     expectedTodoVersion: 1,
@@ -242,13 +277,17 @@ test("failed and successful no-op results roll back without exposing unsafe erro
     { ok: expired.ok, code: expired.code, committed: expired.committed },
     { ok: true, code: "not_expired", committed: false },
   );
+  assert.deepEqual(
+    { ok: expiredReplay.ok, committed: expiredReplay.committed, replayed: expiredReplay.replayed, revision: expiredReplay.revision },
+    { ok: true, committed: false, replayed: true, revision: 1 },
+  );
   assert.equal(completed.error.code, "operation_failed");
   assert.equal(JSON.stringify({ declined, completed }).includes("private"), false);
   assert.deepEqual(store.inspect(), {
     state: freezeDeep(clone(initialState)),
     revision: 1,
   });
-  assert.equal(calls.filter(({ name }) => name === "store.applyResult").length, 2);
+  assert.equal(calls.filter(({ name }) => name === "store.applyResult").length, 3);
 });
 
 test("manual_required analysis cannot mutate or replace the stored owner", async () => {
@@ -278,10 +317,10 @@ test("manual_required analysis cannot mutate or replace the stored owner", async
   assert.equal(calls.some(({ name }) => name === "store.applyResult"), false);
 });
 
-test("caller scope overrides forged command scope and versions and idempotency pass through unchanged", async () => {
+test("forwards trusted scope and versions while preserving replay and conflict receipts", async () => {
   const calls = [];
   const store = createFakeStore(
-    responsibilityState({ ownerId: "mother", handoverStatus: "pending_ack" }),
+    responsibilityState({ ownerId: "mother", handoverStatus: "pending_ack", effectCount: 0 }),
     calls,
   );
   const received = [];
@@ -292,7 +331,12 @@ test("caller scope overrides forged command scope and versions and idempotency p
       return {
         ok: true,
         code: "accepted",
-        nextState: { ...state, ownerId: command.actorId, handoverStatus: "accepted" },
+        nextState: {
+          ...state,
+          ownerId: command.actorId,
+          handoverStatus: "accepted",
+          effectCount: state.effectCount + 1,
+        },
       };
     },
   });
@@ -310,12 +354,22 @@ test("caller scope overrides forged command scope and versions and idempotency p
   const first = await service.accept({ actorId: "father", familyId: "family-one" }, command);
   const firstRevision = store.inspect().revision;
   const replay = await service.accept({ actorId: "father", familyId: "family-one" }, command);
+  const conflict = await service.accept(
+    { actorId: "father", familyId: "family-one" },
+    { ...command, expectedDomainVersion: 8 },
+  );
 
-  assert.equal(first.idempotent, false);
-  assert.equal(replay.idempotent, true);
+  assert.equal(first.committed, true);
+  assert.equal(first.replayed, false);
+  assert.equal(first.revision, firstRevision);
+  assert.equal(replay.committed, false);
+  assert.equal(replay.replayed, true);
+  assert.equal(replay.revision, firstRevision);
   assert.equal(store.inspect().revision, firstRevision);
-  assert.equal(received.length, 2);
-  for (const request of received) {
+  assert.equal(store.inspect().state.effectCount, 1);
+  assert.equal(conflict.error.code, "idempotency_conflict");
+  assert.equal(received.length, 3);
+  for (const request of received.slice(0, 2)) {
     assert.equal(request.actorId, "father");
     assert.equal(request.familyId, "family-one");
     assert.equal(request.expectedHandoverVersion, 4);
@@ -324,7 +378,7 @@ test("caller scope overrides forged command scope and versions and idempotency p
     assert.equal(Object.isFrozen(request), true);
   }
   const applyCalls = calls.filter(({ name }) => name === "store.applyResult");
-  assert.equal(applyCalls.length, 2);
+  assert.equal(applyCalls.length, 3);
   assert.equal(applyCalls.every(({ request }) => request.idempotencyKey === "same-key"), true);
   assert.deepEqual(JSON.parse(applyCalls[0].request.fingerprint), {
     operation: "accept",
@@ -340,6 +394,7 @@ test("caller scope overrides forged command scope and versions and idempotency p
   });
   assert.equal(applyCalls[0].request.fingerprint.includes("forged"), false);
   assert.equal(applyCalls[0].request.fingerprint.includes("private"), false);
+  assert.notEqual(applyCalls[0].request.fingerprint, applyCalls[2].request.fingerprint);
 });
 
 test("resolves family membership before ports while allowing an Agent member to reach leaf policy", async () => {
@@ -410,6 +465,55 @@ test("maps unrecognized error codes to one stable non-content failure", async ()
   });
   assert.equal(JSON.stringify(result).includes("Burden"), false);
   assert.equal(store.inspect().revision, 1);
+});
+
+test("rejects wrapper and legacy store receipts without exposing nested state", async () => {
+  const receipts = [
+    {
+      ok: true,
+      result: { ok: true, code: "accepted", nextState: { ownerId: "agent" } },
+      committed: true,
+      replayed: false,
+      revision: 2,
+    },
+    {
+      ok: true,
+      code: "accepted",
+      nextState: { ownerId: "agent" },
+      committed: true,
+      idempotent: false,
+      revision: 2,
+    },
+    {
+      ok: true,
+      code: "accepted",
+      nextState: { ownerId: "agent" },
+      committed: true,
+      replayed: "false",
+      revision: 2,
+    },
+  ];
+
+  for (const receipt of receipts) {
+    const calls = [];
+    const store = createFakeStore(responsibilityState({ ownerId: "mother" }), calls);
+    store.applyResult = () => receipt;
+    const ports = createPorts(calls, {
+      submitHandover(state) {
+        return { ok: true, nextState: { ...state, ownerId: "father" } };
+      },
+    });
+    const service = createResponsibilityService({ store, ports });
+
+    const result = await service.submit(caller, {
+      handoverId: "handover-one",
+      expectedHandoverVersion: 1,
+      idempotencyKey: "receipt-shape",
+    });
+
+    assert.equal(result.error.code, "invalid_result");
+    assert.equal(JSON.stringify(result).includes("agent"), false);
+  }
 });
 
 test("returns stable errors before dependencies can observe invalid caller or request data", async () => {
