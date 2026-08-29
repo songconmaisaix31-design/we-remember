@@ -278,7 +278,7 @@ async function exerciseSelect(selector, label) {
   return result;
 }
 
-async function assertContainerExperience(selector, minimumRadius, label) {
+async function assertContainerExperience(selector, minimumRadius, minimumPadding, label) {
   const before = JSON.parse(await evaluate(`(() => {
     const element = document.querySelector(${JSON.stringify(selector)});
     const rect = element.getBoundingClientRect();
@@ -287,6 +287,7 @@ async function assertContainerExperience(selector, minimumRadius, label) {
       x: rect.left + rect.width / 2,
       y: rect.top + Math.min(rect.height / 2, 80),
       radius: parseFloat(style.borderTopLeftRadius),
+      padding: parseFloat(style.paddingTop),
       transform: style.transform,
       shadow: style.boxShadow
     });
@@ -298,10 +299,10 @@ async function assertContainerExperience(selector, minimumRadius, label) {
     return JSON.stringify({ transform: style.transform, shadow: style.boxShadow });
   })()`));
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 0, y: 0 });
-  if (before.radius < minimumRadius || after.transform === before.transform || after.shadow === before.shadow) {
+  if (before.radius < minimumRadius || before.padding < minimumPadding || after.transform === before.transform || after.shadow === before.shadow) {
     throw new Error(`${label} container experience failed: ${JSON.stringify({ before, after })}`);
   }
-  return { radius: before.radius, lifted: true, shadowChanged: true };
+  return { radius: before.radius, padding: before.padding, lifted: true, shadowChanged: true };
 }
 
 if (scenario === "identity") {
@@ -429,7 +430,7 @@ if (scenario === "schedule" || scenario === "people") {
   const dayFilter = await exerciseSelect("#schedule-day-filter", "Schedule day filter");
   const memberFilter = await exerciseFilter("[data-member-filter]", "Schedule member filter");
   const scheduleLayout = await assertResponsiveLayout("#schedule-view [data-create-with-agent]");
-  const scheduleContainer = await assertContainerExperience("#schedule-view .schedule-panel", width <= 520 ? 26 : 28, "Schedule");
+  const scheduleContainer = await assertContainerExperience("#schedule-view .schedule-panel", width <= 520 ? 26 : 28, width <= 520 ? 20 : 28, "Schedule");
 
   await openView("people");
   const peopleView = await assertViewState("people");
@@ -442,7 +443,7 @@ if (scenario === "schedule" || scenario === "people") {
     throw new Error(`People and notification shared state failed: ${JSON.stringify(peopleSync)}`);
   }
   const peopleLayout = await assertResponsiveLayout("#people-view [data-create-with-agent]");
-  const peopleContainer = await assertContainerExperience("#people-view .people-panel", width <= 520 ? 26 : 28, "People");
+  const peopleContainer = await assertContainerExperience("#people-view .people-panel", width <= 520 ? 26 : 28, width <= 520 ? 20 : 28, "People");
 
   if (scenario === "schedule") {
     await openView("schedule");

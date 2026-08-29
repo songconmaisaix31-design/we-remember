@@ -107,7 +107,8 @@ The container and motion system has no external image dependency.
 ## Responsive behavior
 
 - At `1120px`, the identity rail collapses to its icon-led form.
-- At `860px`, desktop side rails are removed, the composer and mobile navigation become fixed, and the main content receives bottom clearance.
+- At `960px`, desktop side rails are removed, the composer and mobile navigation become fixed, and the main content receives bottom clearance. The single-column shell can grow to `840px` so tablet layouts use the available width.
+- Primary detail containers use `28px` desktop/tablet padding and `20px` mobile padding. List rows use a minimum `64–76px` height to preserve a comfortable scan rhythm.
 - At `520px`, the entry shell becomes full-screen with no outer radius, integration cards become one column, and the connection dialog becomes a bottom sheet.
 - Container changes must be checked at `1440px` desktop and a true `390px` mobile viewport for overflow, overlap, clipped actions, and fixed-layer collisions.
 
