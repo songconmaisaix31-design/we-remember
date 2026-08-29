@@ -161,6 +161,10 @@ async function handleAnalyze(request, response, runtime) {
   }
 
   const { actorId, text } = parsed.value;
+  if (actorId !== "mother") {
+    sendJson(response, 403, safeError("permission_denied"));
+    return;
+  }
   const suggestion = await runtime.service.suggest(caller(actorId), { text: text.trim() });
   if (suggestion.ok === false) {
     sendJson(response, statusForResult(suggestion), suggestion);
