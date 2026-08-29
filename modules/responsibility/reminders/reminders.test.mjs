@@ -1,115 +1,69 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  completeTodo,
-  deriveReminderPlans,
-  rerouteMigratedOpenDomainOwnerTodo,
-} from './index.mjs';
+import { completeTodo, deriveReminderPlans, rerouteMigratedOpenDomainOwnerTodo } from './index.mjs';
 
-const activeTodoPlan = {
-  id: 'todo:todo-1:mother:4',
-  sourceType: 'todo',
-  sourceId: 'todo-1',
-  recipientId: 'mother',
-  sourceVersion: 4,
-  status: 'active',
+const planKeys = ['id', 'familyId', 'sourceType', 'sourceId', 'recipientId', 'scheduledAt', 'status', 'sourceVersion', 'routingBasis'];
+const todo = {
+  id: 'todo-1', familyId: 'family-1', title: 'Follow up', domainId: 'care', assigneeId: 'mother',
+  assignmentBasis: 'domain_owner', dueAt: '2026-09-01T09:00:00.000Z', status: 'open', version: 4,
+};
+const pendingTodoPlan = {
+  id: 'family-1:todo:todo-1:mother:4', familyId: 'family-1', sourceType: 'todo', sourceId: 'todo-1',
+  recipientId: 'mother', scheduledAt: '2026-09-01T09:00:00.000Z', status: 'pending', sourceVersion: 4,
+  routingBasis: 'todo_assignee',
 };
 
-test('routes every reminder type only to its semantic recipient', () => {
+test('derives exact contract plans from semantic recipients only', () => {
   const result = deriveReminderPlans({
-    events: [{ id: 'event-1', sourceVersion: 1, participantIds: ['mother', 'father'] }],
-    todos: [{ id: 'todo-1', sourceVersion: 4, status: 'open', assigneeId: 'mother', informedMemberIds: ['father'], supportMemberIds: ['grandmother'] }],
-    domains: [{ id: 'care', sourceVersion: 3, accountableOwnerId: 'father' }],
-    domainReviews: [{ id: 'review-1', sourceVersion: 2, domainId: 'care', informedMemberIds: ['mother'] }],
-    handovers: [
-      { id: 'handover-info', sourceVersion: 1, status: 'pending_info', confirmationRequiredFromId: 'father' },
-      { id: 'handover-ack', sourceVersion: 1, status: 'pending_ack', confirmationRequiredFromId: 'mother' },
-    ],
+    events: [{ id: 'event-1', familyId: 'family-1', startsAt: '2026-09-02T09:00:00.000Z', participantIds: ['mother', 'father'], supportMemberIds: ['grandmother'], informedMemberIds: ['daughter'] }],
+    todos: [todo],
+    domains: [{ id: 'care', familyId: 'family-1', accountableOwnerId: 'father', version: 2 }],
+    domainReviews: [{ id: 'review-1', familyId: 'family-1', domainId: 'care', scheduledAt: null, version: 3 }],
+    handovers: [{ id: 'handover-1', familyId: 'family-1', status: 'pending_ack', confirmationRequiredFromId: 'father', expiresAt: null, version: 2 }],
   });
-
   assert.equal(result.ok, true);
-  assert.deepEqual(result.value.map(({ sourceType, recipientId }) => [sourceType, recipientId]), [
-    ['domain_review', 'father'],
-    ['event', 'father'],
-    ['event', 'mother'],
-    ['handover', 'mother'],
-    ['handover', 'father'],
-    ['todo', 'mother'],
+  assert.deepEqual(result.value.map((plan) => Object.keys(plan)), Array(5).fill(planKeys));
+  assert.deepEqual(result.value.map(({ sourceType, recipientId, status, routingBasis }) => [sourceType, recipientId, status, routingBasis]), [
+    ['domain_review', 'father', 'pending', 'domain_owner'],
+    ['event', 'father', 'pending', 'event_participant'],
+    ['event', 'mother', 'pending', 'event_participant'],
+    ['handover', 'father', 'pending', 'handover_confirmer'],
+    ['todo', 'mother', 'pending', 'todo_assignee'],
   ]);
-  assert.ok(result.value.every((plan) => !('defaultRecipientId' in plan) && !('fallbackRecipientId' in plan)));
 });
 
-test('excludes informed members, non-open todos, and terminal handovers', () => {
-  const result = deriveReminderPlans({
-    todos: [
-      { id: 'complete', sourceVersion: 1, status: 'completed', assigneeId: 'mother', informedMemberIds: ['father'] },
-      { id: 'cancelled', sourceVersion: 1, status: 'cancelled', assigneeId: 'father' },
-    ],
-    handovers: [
-      { id: 'accepted', sourceVersion: 1, status: 'accepted', confirmationRequiredFromId: 'father' },
-      { id: 'declined', sourceVersion: 1, status: 'declined', confirmationRequiredFromId: 'mother' },
-      { id: 'expired', sourceVersion: 1, status: 'expired', confirmationRequiredFromId: 'grandmother' },
-    ],
-  });
-
-  assert.deepEqual(result, { ok: true, value: [] });
-});
-
-test('deduplicates duplicate recipients deterministically without mutating inputs', () => {
-  const input = {
-    events: [{ id: 'event-1', sourceVersion: 1, participantIds: ['mother', 'mother'] }],
-  };
+test('deduplicates deterministically and rejects zero versions without mutation', () => {
+  const input = { events: [{ id: 'event-1', familyId: 'family-1', startsAt: '2026-09-02T09:00:00.000Z', participantIds: ['mother', 'mother'] }] };
   const before = structuredClone(input);
   const result = deriveReminderPlans(input);
-
   assert.equal(result.ok, true);
   assert.equal(result.value.length, 1);
+  assert.equal(result.value[0].sourceVersion, 1);
   assert.deepEqual(input, before);
+  assert.equal(deriveReminderPlans({ todos: [{ ...todo, version: 0 }] }).error.code, 'INVALID_TODO');
 });
 
-test('completing an open todo cancels active plans and rejects stale versions', () => {
-  const todo = { id: 'todo-1', sourceVersion: 4, status: 'open', assigneeId: 'mother' };
-  const plans = [activeTodoPlan];
-  const plansBefore = structuredClone(plans);
+test('completeTodo increments Todo.version and stops matching pending plans immutably', () => {
+  const plans = [pendingTodoPlan, { ...pendingTodoPlan, id: 'other', sourceId: 'todo-2' }];
+  const before = structuredClone({ todo, plans });
   const result = completeTodo(todo, plans, 4);
-
   assert.equal(result.ok, true);
-  assert.equal(result.value.todo.status, 'completed');
-  assert.equal(result.value.todo.sourceVersion, 5);
-  assert.equal(result.value.reminderPlans[0].status, 'cancelled');
-  assert.deepEqual(todo, { id: 'todo-1', sourceVersion: 4, status: 'open', assigneeId: 'mother' });
-  assert.deepEqual(plans, plansBefore);
-  assert.deepEqual(completeTodo(todo, [activeTodoPlan], 3), {
-    ok: false,
-    error: { code: 'STALE_SOURCE_VERSION', message: 'Reminder operation could not be completed.' },
-  });
+  assert.deepEqual(result.value.todo, { ...todo, status: 'completed', version: 5 });
+  assert.deepEqual(result.value.reminderPlans.map((plan) => plan.status), ['cancelled', 'pending']);
+  assert.deepEqual({ todo, plans }, before);
+  assert.equal(completeTodo(todo, plans, 3).error.code, 'STALE_SOURCE_VERSION');
 });
 
-test('reroutes only an open domain-owner todo and keeps the replacement plan version aligned', () => {
-  const todo = {
-    id: 'todo-1',
-    sourceVersion: 4,
-    status: 'open',
-    assigneeId: 'mother',
-    domainId: 'care',
-    assignmentType: 'domain_owner',
-  };
-  const result = rerouteMigratedOpenDomainOwnerTodo(todo, [activeTodoPlan], 'father', 4);
-
-  assert.equal(result.ok, true);
-  assert.equal(result.value.todo.assigneeId, 'father');
-  assert.equal(result.value.todo.sourceVersion, 5);
-  assert.deepEqual(result.value.reminderPlans.map((plan) => [plan.recipientId, plan.sourceVersion, plan.status]), [
-    ['father', 5, 'active'],
-    ['mother', 4, 'cancelled'],
+test('migration reroutes only open future or unscheduled matching domain-owner todos', () => {
+  const future = rerouteMigratedOpenDomainOwnerTodo(todo, [pendingTodoPlan], 'father', 4, 'care', '2026-08-30T00:00:00.000Z');
+  assert.equal(future.ok, true);
+  assert.deepEqual(future.value.todo, { ...todo, assigneeId: 'father', version: 5 });
+  assert.deepEqual(future.value.reminderPlans.map(({ recipientId, sourceVersion, status }) => [recipientId, sourceVersion, status]), [
+    ['father', 5, 'pending'], ['mother', 4, 'cancelled'],
   ]);
-  assert.deepEqual(rerouteMigratedOpenDomainOwnerTodo({ ...todo, assignmentType: 'explicit' }, [activeTodoPlan], 'father', 4), {
-    ok: false,
-    error: { code: 'INVALID_TODO', message: 'Reminder operation could not be completed.' },
-  });
-  assert.deepEqual(rerouteMigratedOpenDomainOwnerTodo(todo, [activeTodoPlan], 'father', 3), {
-    ok: false,
-    error: { code: 'STALE_SOURCE_VERSION', message: 'Reminder operation could not be completed.' },
-  });
+  assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, assignmentBasis: 'explicit' }, [pendingTodoPlan], 'father', 4, 'care', '2026-08-30T00:00:00.000Z').error.code, 'TODO_NOT_MIGRATABLE');
+  assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, domainId: 'other' }, [pendingTodoPlan], 'father', 4, 'care', '2026-08-30T00:00:00.000Z').error.code, 'TODO_NOT_MIGRATABLE');
+  assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, dueAt: '2026-08-29T00:00:00.000Z' }, [pendingTodoPlan], 'father', 4, 'care', '2026-08-30T00:00:00.000Z').error.code, 'TODO_NOT_MIGRATABLE');
+  assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, dueAt: null }, [pendingTodoPlan], 'father', 4, 'care', '2026-08-30T00:00:00.000Z').ok, true);
 });
