@@ -7,7 +7,6 @@ import {
   validateEvidence,
   validateFamilyEvent,
   validateHandover,
-  validateHumanAccountableOwner,
   validateMember,
   validateReminderPlan,
   validateResponsibilityDomain,
@@ -70,10 +69,4 @@ test('enforces bounded nonempty identifiers and text', () => {
   assert.equal(validateMember({ ...member, displayName: 'x'.repeat(4097) }).ok, false);
   assert.equal(validateAuditLogEntry({ ...records[8][1], action: '' }).ok, false);
   assert.equal(validateAuditLogEntry({ ...records[8][1], metadata: { unsafe: Infinity } }).ok, false);
-});
-
-test('only a matching human member may be an accountable owner', () => {
-  assert.equal(validateHumanAccountableOwner(member, 'mother').ok, true);
-  assert.equal(validateHumanAccountableOwner({ ...member, kind: 'agent' }, 'mother').ok, false);
-  assert.equal(validateHumanAccountableOwner(member, 'father').ok, false);
 });

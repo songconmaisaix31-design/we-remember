@@ -77,7 +77,6 @@ function failure() {
 
 const validate = (input, keys, predicate) => exactObject(input, keys) && predicate(input) ? success(input) : failure();
 
-/** The member record used to enforce human ownership; agent members cannot own domains. */
 export function validateMember(input) {
   const keys = ['id', 'familyId', 'displayName', 'kind', 'version'];
   return validate(input, keys, (value) => isId(value.id) && isId(value.familyId)
@@ -160,11 +159,4 @@ export function validateAuditLogEntry(input) {
   return validate(input, keys, (value) => isId(value.id) && isId(value.familyId) && isId(value.actorId)
     && isText(value.action) && isEnum(AUDIT_ENTITY_TYPES, value.entityType)
     && isId(value.entityId) && isTimestamp(value.occurredAt) && isMetadata(value.metadata));
-}
-
-/** Enforces the product invariant that only a human member can be accountable. */
-export function validateHumanAccountableOwner(member, ownerId) {
-  const memberResult = validateMember(member);
-  if (!memberResult.ok || memberResult.value.id !== ownerId || memberResult.value.kind !== 'human') return failure();
-  return success(memberResult.value);
 }
