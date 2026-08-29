@@ -11,6 +11,7 @@ const base = Object.freeze({
 
 function clone(value) { return structuredClone(value); }
 function assertOwnerUnchanged(result) { assert.equal(result.domain.accountableOwnerId, "mother"); assert.equal(result.domain.version, 7); assert.deepEqual(result.domain.untouched, { marker: true }); }
+const missingFieldNames = (count) => Array.from({ length: count }, (_, index) => `field_${index}`);
 
 test("submit advances a complete draft to pending_ack without mutating inputs", () => {
   const beforeDomain = clone(domain); const beforeHandover = clone(base);
@@ -52,12 +53,12 @@ test("submit persists pending_info with deterministic missing fields and retains
   assert.equal(result.handover.version, 2); assertOwnerUnchanged(result);
 });
 
-test("submit preserves upstream missing information alongside structural gaps without mutating inputs", () => {
+test("submit rejects duplicate upstream missing information without mutating inputs", () => {
   const handover = { ...base, proposedOwnerId: "", expiresAt: null, missingFields: ["scopeIncluded", "scopeIncluded"] };
   const before = clone(handover);
   const result = submitHandover({ domain, handover, actorId: "mother", expectedVersion: 1 });
-  assert.equal(result.ok, true); assert.equal(result.code, HandoverCode.INCOMPLETE); assert.equal(result.handover.status, "pending_info");
-  assert.deepEqual(result.handover.missingFields, ["scopeIncluded", "proposedOwnerId"]); assertOwnerUnchanged(result);
+  assert.equal(result.ok, false); assert.equal(result.code, HandoverCode.INVALID_TRANSITION); assert.equal(result.handover.status, "draft");
+  assert.deepEqual(result.handover.missingFields, ["scopeIncluded", "scopeIncluded"]); assertOwnerUnchanged(result);
   assert.deepEqual(handover, before);
 });
 
@@ -114,11 +115,73 @@ test("revise can clear explicit missing information only after structural fields
 test("revise rejects malformed missingFields patches without mutating inputs", () => {
   const pending = { ...base, status: "pending_info", missingFields: ["scopeIncluded"], version: 3 };
   const before = clone(pending);
-  for (const missingFields of ["scopeIncluded", [""], ["private proposal"], ["scopeIncluded", 1], ["scopeIncluded", "scopeIncluded"]]) {
+  for (const missingFields of ["scopeIncluded", new Array(1), [""], ["private proposal"], ["scopeIncluded", 1], ["scopeIncluded", "scopeIncluded"]]) {
     const result = reviseHandover({ domain, handover: pending, actorId: "mother", expectedVersion: 3, patch: { missingFields } });
     assert.equal(result.code, HandoverCode.INVALID_TRANSITION); assertOwnerUnchanged(result);
   }
   assert.deepEqual(pending, before);
+});
+
+test("submit and revise enforce the frozen 256-item missingFields boundary", () => {
+  const atLimit = missingFieldNames(256);
+  const overLimit = missingFieldNames(257);
+
+  const submittedAtLimit = submitHandover({
+    domain,
+    handover: { ...base, missingFields: atLimit },
+    actorId: "mother",
+    expectedVersion: 1,
+  });
+  assert.equal(submittedAtLimit.ok, true);
+  assert.equal(submittedAtLimit.handover.missingFields.length, 256);
+  assert.equal(submittedAtLimit.handover.version, 2);
+
+  for (const missingFields of [overLimit, new Array(1)]) {
+    const submitted = submitHandover({
+      domain,
+      handover: { ...base, missingFields },
+      actorId: "mother",
+      expectedVersion: 1,
+    });
+    assert.equal(submitted.ok, false);
+    assert.equal(submitted.code, HandoverCode.INVALID_TRANSITION);
+    assert.equal(submitted.handover.version, 1);
+    assertOwnerUnchanged(submitted);
+  }
+
+  const pending = { ...base, status: "pending_info", missingFields: ["scopeIncluded"], version: 3 };
+  const revisedAtLimit = reviseHandover({
+    domain,
+    handover: pending,
+    actorId: "mother",
+    expectedVersion: 3,
+    patch: { missingFields: atLimit },
+  });
+  assert.equal(revisedAtLimit.ok, true);
+  assert.equal(revisedAtLimit.handover.missingFields.length, 256);
+  assert.equal(revisedAtLimit.handover.version, 4);
+
+  const revisedOverLimit = reviseHandover({
+    domain,
+    handover: pending,
+    actorId: "mother",
+    expectedVersion: 3,
+    patch: { missingFields: overLimit },
+  });
+  assert.equal(revisedOverLimit.ok, false);
+  assert.equal(revisedOverLimit.code, HandoverCode.INVALID_TRANSITION);
+  assert.equal(revisedOverLimit.handover.version, 3);
+  assertOwnerUnchanged(revisedOverLimit);
+
+  const structuralOverflow = submitHandover({
+    domain,
+    handover: { ...base, proposedOwnerId: "", missingFields: atLimit },
+    actorId: "mother",
+    expectedVersion: 1,
+  });
+  assert.equal(structuralOverflow.ok, false);
+  assert.equal(structuralOverflow.code, HandoverCode.INVALID_TRANSITION);
+  assert.equal(structuralOverflow.handover.version, 1);
 });
 
 test("decline requires pending acknowledgement and the current confirmer", () => {

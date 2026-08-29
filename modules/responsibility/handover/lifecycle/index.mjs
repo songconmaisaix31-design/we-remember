@@ -19,6 +19,7 @@ export const HandoverCode = Object.freeze({
 const PENDING_STATUSES = new Set(["pending_info", "pending_ack"]);
 const REVISABLE_FIELDS = new Set(["proposedOwnerId", "expiresAt", "missingFields"]);
 const SAFE_FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
+const MAX_ARRAY_LENGTH = 256;
 const HANDOVER_FIELDS = new Set([
   "id", "familyId", "domainId", "fromOwnerId", "proposedOwnerId", "status",
   "missingFields", "confirmationRequiredFromId", "acknowledgements", "expectedDomainVersion", "expiresAt", "version",
@@ -51,12 +52,15 @@ function structuralMissingFields(handover) {
   return HANDOVER_REQUIRED_FIELDS.filter((field) => !hasValue(handover[field]));
 }
 
-function hasSafeMissingFields(value) {
-  return Array.isArray(value) && value.every((field) => typeof field === "string" && SAFE_FIELD_NAME.test(field));
-}
-
-function hasUniqueSafeMissingFields(value) {
-  return hasSafeMissingFields(value) && new Set(value).size === value.length;
+function hasBoundedUniqueSafeMissingFields(value) {
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_LENGTH
+    || Reflect.ownKeys(value).length !== value.length + 1) return false;
+  for (let index = 0; index < value.length; index += 1) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
+    if (descriptor?.enumerable !== true || !Object.hasOwn(descriptor, "value")) return false;
+  }
+  return value.every((field) => typeof field === "string" && SAFE_FIELD_NAME.test(field))
+    && new Set(value).size === value.length;
 }
 
 function isNullableInstant(value) {
@@ -99,10 +103,13 @@ export function submitHandover({ domain, handover, actorId, expectedVersion } = 
   if (actorId !== domain.accountableOwnerId || actorId !== handover.fromOwnerId) {
     return result(false, HandoverCode.PERMISSION, domain, handover);
   }
-  if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  if (!hasBoundedUniqueSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   if (!isNullableInstant(handover.expiresAt)) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
 
   const next = nextPendingHandover({ ...handover, version: handover.version + 1 });
+  if (!hasBoundedUniqueSafeMissingFields(next.missingFields)) {
+    return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  }
   return result(true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
 }
 
@@ -113,14 +120,14 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
   if (!canManage(handover, actorId)) return result(false, HandoverCode.PERMISSION, domain, handover);
-  if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  if (!hasBoundedUniqueSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).some((key) => !REVISABLE_FIELDS.has(key))) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   if (Object.hasOwn(patch, "proposedOwnerId") && actorId !== handover.fromOwnerId) {
     return result(false, HandoverCode.PERMISSION, domain, handover);
   }
-  if ("missingFields" in patch && !hasUniqueSafeMissingFields(patch.missingFields)) {
+  if ("missingFields" in patch && !hasBoundedUniqueSafeMissingFields(patch.missingFields)) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   const expiresAt = Object.hasOwn(patch, "expiresAt") ? patch.expiresAt : handover.expiresAt;
@@ -132,6 +139,9 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
     acknowledgements: [],
     version: handover.version + 1,
   });
+  if (!hasBoundedUniqueSafeMissingFields(next.missingFields)) {
+    return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  }
   return result(true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
 }
 
@@ -141,6 +151,7 @@ export function declineHandover({ domain, handover, actorId, expectedVersion } =
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
+  if (!hasBoundedUniqueSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   if (actorId !== handover.confirmationRequiredFromId) return result(false, HandoverCode.PERMISSION, domain, handover);
 
   return result(true, HandoverCode.OK, domain, {
@@ -157,6 +168,7 @@ export function expireHandover({ domain, handover, now, expectedVersion } = {}) 
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
+  if (!hasBoundedUniqueSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   const currentTime = parseIsoCalendarInstant(now);
   if (currentTime === null) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
   if (handover.expiresAt === null) return result(false, HandoverCode.NOT_EXPIRED, domain, handover);
