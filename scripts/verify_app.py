@@ -11,6 +11,7 @@ JS = (ROOT / "app" / "app.js").read_text(encoding="utf-8")
 OPENAPI = (ROOT / "contracts" / "channel-gateway.openapi.yaml").read_text(encoding="utf-8")
 GATEWAY_DOC = (ROOT / "docs" / "integration-gateway.md").read_text(encoding="utf-8")
 AVATAR_ASSET_ROOT = ROOT / "app" / "assets" / "family-work"
+BRAND_ASSET_ROOT = ROOT / "app" / "assets" / "brand"
 ROBOT_ROOT = ROOT / "modules" / "robot"
 ROBOT_CONTRACTS = (ROBOT_ROOT / "src" / "contracts.ts").read_text(encoding="utf-8")
 ROBOT_A3 = (ROBOT_ROOT / "src" / "a3-http-adapter.ts").read_text(encoding="utf-8")
@@ -47,6 +48,9 @@ require(HTML, 'class="people-panel surface lift-card"', "people container elevat
 require(HTML, 'class="receipts-panel surface lift-card"', "receipt container elevation")
 require(HTML, 'data-create-with-agent', "route back to Agent")
 require(HTML, 'class="app-shell" data-app-state="idle">', "direct-entry application shell")
+require(HTML, 'class="brand-intro" id="brand-intro" aria-hidden="true"', "one-shot brand opening")
+require(HTML, 'src="assets/brand/mom-to-we-remember.svg" alt=""', "opening animation asset")
+require(HTML, 'class="brand-logo" src="assets/brand/we-remember-logo.svg" alt="We Remember"', "static brand logo")
 require(HTML, 'id="profile-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg"', "working-woman default avatar")
 require(HTML, 'data-role-avatar="father" src="assets/family-work/father/family.svg"', "father role avatar")
 require(JS, 'role: "mother", avatar: "assets/family-work/mother/family.svg"', "mother role avatar mapping")
@@ -72,6 +76,11 @@ require(CSS, ".schedule-panel { padding: 28px; }", "expanded schedule container 
 require(CSS, ".people-panel, .receipts-panel { padding: 28px; }", "expanded people container spacing")
 require(CSS, ".member-row:hover", "member container feedback")
 require(CSS, ".notification-receipt:hover", "receipt container feedback")
+require(CSS, ".brand-logo { display: block; width: 100%;", "brand logo viewport crop")
+require(CSS, "@keyframes brand-intro-exit", "one-shot brand opening exit")
+require(CSS, ".brand-intro { display: none; }", "reduced-motion opening bypass")
+require(JS, 'brandIntro?.addEventListener("animationend", dismissBrandIntro', "opening animation cleanup")
+require(JS, 'document.body.classList.remove("has-brand-intro")', "opening scroll-lock cleanup")
 require(OPENAPI, "/gateway/v1/installations/{installationId}/events:", "custom bot ingress endpoint")
 require(OPENAPI, "/gateway/v1/installations/{installationId}/delivery-receipts:", "delivery receipt endpoint")
 require(OPENAPI, "botDelivery:", "outbound delivery webhook")
@@ -122,6 +131,7 @@ for removed_fragment in (
     'id="avatar-step"',
     'id="avatar-upload"',
     'id="sign-out-button"',
+    'class="brand-mark"',
     "DEMO_SESSION_KEY",
     "DEMO_FAMILY_KEY",
 ):
@@ -164,5 +174,58 @@ for role in roles:
 
 if any(AVATAR_ASSET_ROOT.glob("*/*-to-*.svg")):
     raise AssertionError("Transition SVGs must not be included in the default avatar library")
+
+brand_animations = {
+    "mom-to-we-remember.svg": ("4.8s", "mom", "We Remember", "384", "384", "0 0 384 384"),
+    "remomber-to-remember.svg": ("4.6s", "We Remomber", "We Remember", "720", "180", "0 0 720 180"),
+}
+
+for file_name, (duration, initial_text, final_text, width, height, view_box) in brand_animations.items():
+    path = BRAND_ASSET_ROOT / file_name
+    if not path.is_file():
+        raise AssertionError(f"Missing brand animation: {path.relative_to(ROOT)}")
+    source = path.read_text(encoding="utf-8")
+    root = ElementTree.fromstring(source)
+    if (
+        root.tag.rsplit("}", 1)[-1] != "svg"
+        or root.attrib.get("width") != width
+        or root.attrib.get("height") != height
+        or root.attrib.get("viewBox") != view_box
+    ):
+        raise AssertionError(f"Invalid brand SVG canvas: {path.relative_to(ROOT)}")
+    tags = [element.tag.rsplit("}", 1)[-1] for element in root.iter()]
+    if "title" not in tags or "desc" not in tags:
+        raise AssertionError(f"Brand SVG needs an accessible title and description: {path.relative_to(ROOT)}")
+    if any(tag in {"script", "image", "foreignObject", "filter"} for tag in tags):
+        raise AssertionError(f"Brand SVG must remain dependency-free: {path.relative_to(ROOT)}")
+    if file_name == "mom-to-we-remember.svg":
+        if "text" in tags:
+            raise AssertionError("The approved mom wordmark must use fixed paths, not system-font text")
+        for color in ("#171813", "#FD6420"):
+            require(source, color, f"reference-matched brand color in {file_name}")
+    if any(
+        element.tag.rsplit("}", 1)[-1] == "rect"
+        and element.attrib.get("width") == "720"
+        and element.attrib.get("height") == "180"
+        for element in root.iter()
+    ):
+        raise AssertionError(f"Brand SVG must keep a transparent canvas: {path.relative_to(ROOT)}")
+    for fragment in (duration, initial_text, final_text, "prefers-reduced-motion: reduce"):
+        require(source, fragment, f"brand animation contract in {file_name}")
+
+static_logo_path = BRAND_ASSET_ROOT / "we-remember-logo.svg"
+static_logo_source = static_logo_path.read_text(encoding="utf-8")
+static_logo_root = ElementTree.fromstring(static_logo_source)
+if (
+    static_logo_root.attrib.get("width") != "344"
+    or static_logo_root.attrib.get("height") != "126"
+    or static_logo_root.attrib.get("viewBox") != "20 128 344 126"
+):
+    raise AssertionError("Invalid static We Remember logo canvas")
+static_logo_tags = [element.tag.rsplit("}", 1)[-1] for element in static_logo_root.iter()]
+if any(tag in {"style", "script", "image", "foreignObject", "filter", "text"} for tag in static_logo_tags):
+    raise AssertionError("Static We Remember logo must remain fixed, path-only, and dependency-free")
+for color in ("#171813", "#FD6420"):
+    require(static_logo_source, color, "static We Remember logo color")
 
 print("PASS: conversational schedule structural contract")

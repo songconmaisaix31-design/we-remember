@@ -37,6 +37,8 @@ The custom-bot HTTP source of truth is [contracts/channel-gateway.openapi.yaml](
 
 The visual asset library contains 12 static `family.svg` and `work.svg` endpoints under `app/assets/family-work/`. The direct-entry UI uses the working-woman asset for the current person and family-form assets for named members. Transition SVGs are excluded, and professional forms do not create or select a work workspace. Review the bundled attribution note before external distribution.
 
+Brand assets live under `app/assets/brand/`. `we-remember-logo.svg` is the static, path-only application logo. `mom-to-we-remember.svg` plays once as the full-screen page opening and resolves into the same two-line wordmark with an orange `mem` center; `remomber-to-remember.svg` remains a separate typo-correction animation. Reduced-motion users skip the page opening and see the application immediately.
+
 Run `powershell -ExecutionPolicy Bypass -File scripts/check_channel_clis.ps1` to emit a credential-free local readiness report for Feishu, DingTalk, and the ClawBot host. See [docs/cli-integration-runbook.md](docs/cli-integration-runbook.md) before starting any event consumer or outbound send.
 
 Robot integration boundaries, corrected AimDK v3.1 request shapes, and the explicit live smoke-test gate are documented in [docs/robot-a3-integration.md](docs/robot-a3-integration.md). No robot network call is made by the browser prototype.

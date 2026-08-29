@@ -43,6 +43,7 @@
 - 主容器保留抬升、阴影和短时状态反馈；静态信息行不会通过位移动画暗示可点击。
 - 手机保持 12px 页面安全边距，底部导航和主要操作可达。
 - 路由切换时标题会接收程序化焦点，但不会显示多余的黑色焦点框。
+- `app/assets/brand/` 提供静态 Logo 和两套透明品牌 SVG 动画。侧栏固定使用 `we-remember-logo.svg`；进入或刷新网页时只播放一次 `mom-to-we-remember.svg` 全屏开幕动画，结束后移除开幕层并恢复滚动。减少动态效果时直接跳过。
 
 容器、材质、动效和响应式规则的详细清单见 [docs/container-motion-materials.md](docs/container-motion-materials.md)。
 

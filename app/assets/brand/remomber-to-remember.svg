@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-labelledby="wr-fix-title wr-fix-desc">
+  <title id="wr-fix-title">We Remomber corrects to We Remember</title>
+  <desc id="wr-fix-desc">The incorrect orange o is highlighted, contracts, and fades while the correct charcoal e appears with a restrained correction sweep.</desc>
+  <style>
+    svg { display: block; max-width: 100%; height: auto; overflow: visible; }
+
+    .wr-fix-typo { animation: wrFixTypo 4.6s ease-in-out infinite; }
+    .wr-fix-wordmark { animation: wrFixWordmark 4.6s ease-in-out infinite; }
+    .wr-fix-wrong,
+    .wr-fix-ring {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .wr-fix-wrong { animation: wrFixWrong 4.6s cubic-bezier(.3, .05, .2, 1) infinite; }
+    .wr-fix-ring { animation: wrFixRing 4.6s ease-in-out infinite; }
+    .wr-fix-underline { animation: wrFixUnderline 4.6s ease-out infinite; }
+    .wr-fix-sheen { animation: wrFixSheen 4.6s cubic-bezier(.25, .72, .3, 1) infinite; }
+
+    @keyframes wrFixTypo {
+      0%, 28% { opacity: 1; }
+      46%, 88% { opacity: 0; }
+      100% { opacity: 1; }
+    }
+
+    @keyframes wrFixWordmark {
+      0%, 28% { opacity: 0; }
+      46%, 88% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes wrFixWrong {
+      0%, 24% { opacity: 1; transform: scale(1); }
+      43%, 86% { opacity: 0; transform: scale(.18); }
+      94% { opacity: 0; transform: scale(.78); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    @keyframes wrFixRing {
+      0% { opacity: .16; transform: scale(.88); }
+      18% { opacity: .3; transform: scale(1.08); }
+      42%, 88% { opacity: 0; transform: scale(.64); }
+      100% { opacity: .16; transform: scale(.88); }
+    }
+
+    @keyframes wrFixUnderline {
+      0%, 30% { opacity: 0; stroke-dashoffset: 38; }
+      42%, 58% { opacity: 1; stroke-dashoffset: 0; }
+      70%, 100% { opacity: 0; stroke-dashoffset: 0; }
+    }
+
+    @keyframes wrFixSheen {
+      0%, 43% { opacity: 0; transform: translateX(-80px); }
+      50% { opacity: .13; }
+      66%, 100% { opacity: 0; transform: translateX(760px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .wr-fix-wrong,
+      .wr-fix-typo,
+      .wr-fix-wordmark,
+      .wr-fix-ring,
+      .wr-fix-underline,
+      .wr-fix-sheen { animation: none; }
+      .wr-fix-wrong,
+      .wr-fix-typo,
+      .wr-fix-ring,
+      .wr-fix-underline,
+      .wr-fix-sheen { opacity: 0; }
+      .wr-fix-wordmark { opacity: 1; }
+    }
+  </style>
+
+  <g fill="#211E1B" font-family="Inter, Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="54" font-weight="650">
+    <text class="wr-fix-typo" x="120" y="112" textLength="480" lengthAdjust="spacingAndGlyphs">We Remomber</text>
+    <text class="wr-fix-wordmark" x="120" y="112" textLength="480" lengthAdjust="spacingAndGlyphs">We Remember</text>
+  </g>
+
+  <circle class="wr-fix-ring" cx="408.4" cy="93" r="25" fill="#E86F51" fill-opacity=".16" stroke="#E86F51" stroke-opacity=".42" />
+  <text class="wr-fix-wrong" x="408.4" y="93" fill="#E86F51" font-family="Inter, Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="54" font-weight="700" text-anchor="middle" dominant-baseline="central">o</text>
+  <path class="wr-fix-underline" d="M389.4 130 H427.4" fill="none" stroke="#E86F51" stroke-width="3" stroke-linecap="round" stroke-dasharray="38" stroke-dashoffset="38" />
+  <rect class="wr-fix-sheen" x="0" y="58" width="42" height="68" rx="21" fill="#E86F51" />
+</svg>

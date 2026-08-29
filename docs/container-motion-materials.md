@@ -92,6 +92,8 @@ The container and motion system has no external image dependency.
 - Icons used inside containers are text or inline interface marks; there is no icon package dependency.
 - The direct-entry UI uses `mother/work.svg` as the current person's default avatar and matching family-form SVGs for named members. These role images are identity presentation, not container-motion assets.
 - The transition SVGs under `svg-transition/` are separate showcase assets and are intentionally not loaded by the application.
+- The brand animations under `app/assets/brand/` are separate web-ready assets. The square `mom` transition uses the approved two-line black/orange wordmark tail frame; neither brand SVG embeds the raster reference, a watermark, or an opaque background.
+- The application rail uses the static `we-remember-logo.svg`. The `mom` transition appears only as a one-shot, full-screen opening layer; it locks scrolling while visible, removes itself after the exit animation, and is skipped for reduced-motion users.
 
 ## Accessibility and reliability rules
 

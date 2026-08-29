@@ -38,6 +38,18 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - Notifications remain consent- and authorization-gated. Mentioning a person does not automatically grant permission to notify them.
 - High-risk health, safety, financial, or legal content may create a draft but must not trigger consequential actions without human review.
 
+## Brand motion assets
+
+The web asset bundle includes two transparent, single-file SVG brand animations: `mom` expanding into the correct two-line “We Remember” wordmark, and the intentional typo “We Remomber” resolving from highlighted `o` to `e`. Both assets loop in approximately five seconds, use warm orange and charcoal, require no script or external image, remain usable through `<img>` or inline SVG markup, and settle on the correct wordmark when reduced motion is requested.
+
+Brand-motion acceptance criteria:
+
+- Each deliverable is one valid SVG file with a transparent background and an accessible title and description.
+- The `mom` anchor remains stationary while the approved square tail composition slowly fades in: black `We` above `Re` + orange `mem` + black `ber`. Its outer `m` shapes are shared with the final orange paths, and only the centered `o` crossfades to the final `e`. The supplied raster defines the traced wordmark geometry and colors but is not embedded in the deliverable.
+- The correction transition begins with “We Remomber”, highlights the wrong `o`, replaces it smoothly with `e`, and applies one restrained correction sweep.
+- Both animations loop between 4 and 5 seconds without external dependencies and show a static correct “We Remember” state under `prefers-reduced-motion: reduce`.
+- The application rail uses a separate static, path-only “We Remember” asset. On normal page entry the `mom` animation plays once in a full-screen opening layer, fades away, removes itself, and restores page scrolling; reduced-motion users skip the opening entirely.
+
 ## Prototype entry and production identity
 
 The static prototype opens directly on the Agent destination with a fixed fictional family and the working-woman SVG as the default personal avatar. Family members use their corresponding static role SVGs. It does not present a family-key gate, family confirmation, avatar setup, or sign-out flow. This keeps the prototype focused on the conversation-to-confirmation journey and must not be interpreted as production authentication.
