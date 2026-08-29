@@ -1,3 +1,5 @@
+import { isIsoCalendarInstant, parseIsoCalendarInstant } from "../../model/time.mjs";
+
 const FAILURE = Object.freeze({
   INVALID_INPUT: "invalid_input",
   INVALID_TRANSITION: "invalid_transition",
@@ -10,10 +12,6 @@ const FAILURE = Object.freeze({
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === "string" && value.length > 0;
-const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
-const isIsoInstant = (value) => isNonEmptyString(value)
-  && ISO_INSTANT.test(value)
-  && Number.isFinite(Date.parse(value));
 const failure = (code) => Object.freeze({ ok: false, code });
 const replaceById = (items, id, replacement) => items.map((item) => item.id === id ? replacement : item);
 
@@ -27,12 +25,23 @@ function fingerprint(command) {
   });
 }
 
-function isFutureOrUnscheduled(dueAt, now) {
+function isFutureOrUnscheduled(dueAt, nowInstant) {
   if (dueAt === null) return true;
-  if (!isNonEmptyString(dueAt)) return false;
-  const due = Date.parse(dueAt);
-  const current = Date.parse(now);
-  return Number.isFinite(due) && Number.isFinite(current) && due > current;
+  const due = parseIsoCalendarInstant(dueAt);
+  return due !== null && due > nowInstant;
+}
+
+function resolveActiveHumanMember(members, familyId, memberId) {
+  const matches = members.filter((member) => isObject(member) && member.id === memberId);
+  if (matches.length !== 1) return null;
+  const member = matches[0];
+  const active = member.status === undefined || member.status === "active";
+  return member.familyId === familyId && member.kind === "human" && active ? member : null;
+}
+
+function isMigrationCandidate(todo, domain) {
+  return isObject(todo) && todo.familyId === domain.familyId && todo.domainId === domain.id
+    && todo.status === "open" && todo.assignmentBasis === "domain_owner";
 }
 
 function immutableSnapshot(value) {
@@ -50,10 +59,25 @@ function immutableSnapshot(value) {
 export function acceptHandover(state, command) {
   if (!isObject(state) || !isObject(command) || !isNonEmptyString(command.idempotencyKey)
     || !isNonEmptyString(command.actorId) || !isNonEmptyString(command.handoverId)
-    || !isIsoInstant(command.now) || !Number.isInteger(command.expectedHandoverVersion)
+    || !isIsoCalendarInstant(command.now) || !Number.isInteger(command.expectedHandoverVersion)
     || !Number.isInteger(command.expectedDomainVersion) || !Array.isArray(state.members)
     || !Array.isArray(state.domains) || !Array.isArray(state.handovers) || !Array.isArray(state.todos)
     || !Array.isArray(state.reminders) || !Array.isArray(state.auditLog) || !Array.isArray(state.notices)) {
+    return failure(FAILURE.INVALID_INPUT);
+  }
+
+  const nowInstant = parseIsoCalendarInstant(command.now);
+  const handover = state.handovers.find((item) => item.id === command.handoverId);
+  if (!handover) return failure(FAILURE.INVALID_INPUT);
+  const domain = state.domains.find((item) => item.id === handover.domainId);
+  if (!domain || domain.familyId !== handover.familyId) return failure(FAILURE.INVALID_INPUT);
+  if (!resolveActiveHumanMember(state.members, handover.familyId, handover.proposedOwnerId)) {
+    return failure(FAILURE.PERMISSION);
+  }
+  const expiresAt = handover.expiresAt === null ? null : parseIsoCalendarInstant(handover.expiresAt);
+  if (handover.expiresAt !== null && expiresAt === null) return failure(FAILURE.INVALID_INPUT);
+  const migrationCandidates = state.todos.filter((todo) => isMigrationCandidate(todo, domain));
+  if (migrationCandidates.some((todo) => todo.dueAt !== null && !isIsoCalendarInstant(todo.dueAt))) {
     return failure(FAILURE.INVALID_INPUT);
   }
 
@@ -65,26 +89,16 @@ export function acceptHandover(state, command) {
     return Object.freeze({ ok: true, code: "accepted", nextState: state, idempotent: true });
   }
 
-  const handover = state.handovers.find((item) => item.id === command.handoverId);
-  if (!handover) return failure(FAILURE.INVALID_INPUT);
-  const domain = state.domains.find((item) => item.id === handover.domainId);
-  if (!domain) return failure(FAILURE.INVALID_INPUT);
   if (handover.status !== "pending_ack") return failure(FAILURE.INVALID_TRANSITION);
   if (!Array.isArray(handover.missingFields) || handover.missingFields.length !== 0) return failure(FAILURE.INCOMPLETE);
   if (handover.confirmationRequiredFromId !== command.actorId || handover.proposedOwnerId !== command.actorId) {
     return failure(FAILURE.PERMISSION);
   }
-  const proposedOwner = state.members.find((member) => member.id === handover.proposedOwnerId);
-  if (!proposedOwner || proposedOwner.kind !== "human" || proposedOwner.familyId !== handover.familyId
-    || domain.familyId !== handover.familyId) return failure(FAILURE.PERMISSION);
   if (domain.accountableOwnerId !== handover.fromOwnerId) return failure(FAILURE.INVALID_TRANSITION);
   if (handover.expectedDomainVersion !== command.expectedDomainVersion || domain.version !== command.expectedDomainVersion
     || handover.version !== command.expectedHandoverVersion) return failure(FAILURE.VERSION);
   if (handover.expiresAt !== null) {
-    const expiry = Date.parse(handover.expiresAt);
-    const now = Date.parse(command.now);
-    if (!Number.isFinite(expiry) || !Number.isFinite(now)) return failure(FAILURE.INVALID_INPUT);
-    if (expiry <= now) return failure(FAILURE.EXPIRED);
+    if (expiresAt <= nowInstant) return failure(FAILURE.EXPIRED);
   }
 
   const nextDomain = { ...domain, accountableOwnerId: handover.proposedOwnerId, version: domain.version + 1 };
@@ -96,8 +110,7 @@ export function acceptHandover(state, command) {
   };
   const migratedTodoIds = new Set();
   const nextTodos = state.todos.map((todo) => {
-    const shouldMigrate = todo.familyId === domain.familyId && todo.domainId === domain.id && todo.status === "open"
-      && todo.assignmentBasis === "domain_owner" && isFutureOrUnscheduled(todo.dueAt, command.now);
+    const shouldMigrate = isMigrationCandidate(todo, domain) && isFutureOrUnscheduled(todo.dueAt, nowInstant);
     if (!shouldMigrate) return todo;
     migratedTodoIds.add(todo.id);
     return { ...todo, assigneeId: handover.proposedOwnerId, version: todo.version + 1 };

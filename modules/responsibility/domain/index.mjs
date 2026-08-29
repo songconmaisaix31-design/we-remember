@@ -1,3 +1,5 @@
+import { isIsoCalendarInstant } from "../model/time.mjs";
+
 const DOMAIN_KEYS = Object.freeze([
   "id",
   "familyId",
@@ -42,7 +44,6 @@ const ASSIGNMENT_BASES = new Set(["domain_owner", "explicit"]);
 const MAX_ID_LENGTH = 128;
 const MAX_TEXT_LENGTH = 4096;
 const MAX_ARRAY_LENGTH = 256;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const SAFE_ERROR_MESSAGE = "Responsibility domain command could not be completed.";
 
 export const DOMAIN_COMMAND_ERROR_CODES = Object.freeze({
@@ -74,9 +75,7 @@ const isId = (value) => typeof value === "string" && value.length > 0 && value.l
 const isText = (value) => typeof value === "string" && value.length > 0 && value.length <= MAX_TEXT_LENGTH;
 const isPositiveVersion = (value) => Number.isSafeInteger(value) && value > 0;
 const isNullableId = (value) => value === null || isId(value);
-const isTimestamp = (value) => typeof value === "string"
-  && ISO_TIMESTAMP.test(value)
-  && Number.isFinite(Date.parse(value));
+const isTimestamp = isIsoCalendarInstant;
 const isNullableTimestamp = (value) => value === null || isTimestamp(value);
 
 function hasExactKeys(value, keys) {
