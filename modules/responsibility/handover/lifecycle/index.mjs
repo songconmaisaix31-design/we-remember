@@ -1,3 +1,5 @@
+import { isIsoCalendarInstant, parseIsoCalendarInstant } from "../../model/time.mjs";
+
 export const HANDOVER_REQUIRED_FIELDS = Object.freeze([
   "domainId",
   "fromOwnerId",
@@ -9,6 +11,7 @@ export const HandoverCode = Object.freeze({
   INVALID_TRANSITION: "invalid_transition",
   PERMISSION: "permission",
   INCOMPLETE: "incomplete",
+  INVALID_INPUT: "invalid_input",
   NOT_EXPIRED: "not_expired",
   CONFLICT: "conflict",
 });
@@ -56,6 +59,10 @@ function hasUniqueSafeMissingFields(value) {
   return hasSafeMissingFields(value) && new Set(value).size === value.length;
 }
 
+function isNullableInstant(value) {
+  return value === null || isIsoCalendarInstant(value);
+}
+
 function missingFields(handover) {
   return [...new Set([...handover.missingFields, ...structuralMissingFields(handover)])];
 }
@@ -93,6 +100,7 @@ export function submitHandover({ domain, handover, actorId, expectedVersion } = 
     return result(false, HandoverCode.PERMISSION, domain, handover);
   }
   if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  if (!isNullableInstant(handover.expiresAt)) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
 
   const next = nextPendingHandover({ ...handover, version: handover.version + 1 });
   return result(true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
@@ -115,6 +123,8 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
   if ("missingFields" in patch && !hasUniqueSafeMissingFields(patch.missingFields)) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
+  const expiresAt = Object.hasOwn(patch, "expiresAt") ? patch.expiresAt : handover.expiresAt;
+  if (!isNullableInstant(expiresAt)) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
 
   const next = nextPendingHandover({
     ...handover,
@@ -147,10 +157,12 @@ export function expireHandover({ domain, handover, now, expectedVersion } = {}) 
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
+  const currentTime = parseIsoCalendarInstant(now);
+  if (currentTime === null) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
   if (handover.expiresAt === null) return result(false, HandoverCode.NOT_EXPIRED, domain, handover);
-  const expiresAt = Date.parse(handover.expiresAt);
-  const currentTime = Date.parse(now);
-  if (!Number.isFinite(expiresAt) || !Number.isFinite(currentTime) || currentTime <= expiresAt) {
+  const expiresAt = parseIsoCalendarInstant(handover.expiresAt);
+  if (expiresAt === null) return result(false, HandoverCode.INVALID_INPUT, domain, handover);
+  if (currentTime <= expiresAt) {
     return result(false, HandoverCode.NOT_EXPIRED, domain, handover);
   }
 

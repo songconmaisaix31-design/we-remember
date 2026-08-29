@@ -84,6 +84,9 @@ test("rejects an invalid acceptance instant before changing any state", () => {
   for (const { invalidNow, handoverOverrides = {} } of [
     { invalidNow: "not-a-timestamp", handoverOverrides: { expiresAt: null } },
     { invalidNow: "2026-08-30" },
+    { invalidNow: "2030-02-30T00:00:00Z" },
+    { invalidNow: "2026-08-30T24:00:00Z" },
+    { invalidNow: new Date(now) },
   ]) {
     const input = state({ handovers: [{ ...state().handovers[0], ...handoverOverrides }] });
     const before = structuredClone(input);
@@ -92,6 +95,61 @@ test("rejects an invalid acceptance instant before changing any state", () => {
     assert.equal("nextState" in result, false);
     assert.deepEqual(input, before);
   }
+});
+
+test("rejects invalid expiry and migratable dueAt before changing owner", () => {
+  const cases = [
+    state({ handovers: [{ ...state().handovers[0], expiresAt: "2030-02-30T00:00:00Z" }] }),
+    state({ todos: state().todos.map((todo) => todo.id === "future"
+      ? { ...todo, dueAt: "2030-02-30T00:00:00Z" }
+      : todo) }),
+    state({ todos: state().todos.map((todo) => todo.id === "future"
+      ? { ...todo, dueAt: new Date("2026-09-01T00:00:00Z") }
+      : todo) }),
+  ];
+  for (const input of cases) {
+    const before = structuredClone(input);
+    const result = acceptHandover(input, command);
+    assert.deepEqual(result, { ok: false, code: ACCEPT_HANDOVER_FAILURE.INVALID_INPUT });
+    assert.equal("nextState" in result, false);
+    assert.deepEqual(input, before);
+  }
+});
+
+test("requires exactly one active same-family human proposed owner", () => {
+  const originalMembers = state().members;
+  const father = originalMembers.find((member) => member.id === "father");
+  const cases = [
+    [...originalMembers, { ...father }],
+    [...originalMembers, { id: "father", familyId: "family-1", kind: "agent" }],
+    [...originalMembers, { id: "father", familyId: "family-2", kind: "human" }],
+    originalMembers.map((member) => member.id === "father" ? { ...member, status: "inactive" } : member),
+  ];
+  for (const members of cases) {
+    const input = state({ members });
+    const before = structuredClone(input);
+    const result = acceptHandover(input, command);
+    assert.deepEqual(result, { ok: false, code: ACCEPT_HANDOVER_FAILURE.PERMISSION });
+    assert.equal("nextState" in result, false);
+    assert.deepEqual(input, before);
+  }
+});
+
+test("accepts one explicitly active human and valid offset instants", () => {
+  const input = state({
+    members: state().members.map((member) => member.id === "father" ? { ...member, status: "active" } : member),
+    handovers: [{ ...state().handovers[0], expiresAt: "2026-08-31T08:00:00+08:00" }],
+    todos: state().todos.map((todo) => todo.id === "future"
+      ? { ...todo, dueAt: "2026-09-01T08:00:00+08:00" }
+      : todo),
+  });
+  const result = acceptHandover(input, {
+    ...command,
+    idempotencyKey: "accept-offset",
+    now: "2026-08-30T08:00:00+08:00",
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.nextState.domains[0].accountableOwnerId, "father");
 });
 
 test("same idempotency key replays the accepted snapshot and mismatched reuse conflicts", () => {
