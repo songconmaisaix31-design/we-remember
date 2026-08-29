@@ -121,10 +121,10 @@ test("factory returns the exact frozen-contract record shapes", () => {
   assert.deepEqual(
     fixture.members.map(({ id, kind }) => ({ id, kind })),
     [
-      { id: "member-mother", kind: "human" },
-      { id: "member-father", kind: "human" },
-      { id: "member-grandmother", kind: "human" },
-      { id: "member-family-agent", kind: "agent" },
+      { id: "mother", kind: "human" },
+      { id: "father", kind: "human" },
+      { id: "grandmother", kind: "human" },
+      { id: "agent", kind: "agent" },
     ],
   );
   assert.equal(fixture.members.every((member) => member.familyId === fixture.familyId), true);
@@ -193,15 +193,17 @@ test("initial owner, future domain todo, reminder, and draft handover are aligne
   const handover = fixture.handovers[0];
 
   assert.equal(domainOwner.kind, "human");
+  assert.equal(domainOwner.id, "mother");
   assert.equal(fixture.events[0].domainId, domain.id);
-  assert.deepEqual(fixture.events[0].participantIds, [
-    fixture.members.find((member) => member.displayName === "Mei Chen").id,
-  ]);
+  assert.deepEqual(fixture.events[0].participantIds, ["grandmother"]);
+  assert.deepEqual(fixture.events[0].supportMemberIds, ["mother"]);
+  assert.deepEqual(fixture.events[0].informedMemberIds, ["father"]);
   assert.equal(domain.nextActionId, domainTodo.id);
   assert.equal(domainTodo.assigneeId, domain.accountableOwnerId);
   assert.equal(domainTodo.status, "open");
   assert.equal(Date.parse(domainTodo.dueAt) > Date.parse("2026-08-30T00:00:00.000Z"), true);
-  assert.equal(explicitTodo.assigneeId, fixture.members.find((member) => member.kind === "agent").id);
+  assert.equal(explicitTodo.assigneeId, "agent");
+  assert.equal(explicitTodo.assignmentBasis, "explicit");
   assert.equal(fixture.reminders.some((item) => item.sourceId === explicitTodo.id), false);
 
   assert.deepEqual(reminder, {
@@ -214,7 +216,8 @@ test("initial owner, future domain todo, reminder, and draft handover are aligne
     status: "pending",
   });
   assert.equal(handover.fromOwnerId, domain.accountableOwnerId);
-  assert.equal(handover.proposedOwnerId, fixture.members.find((member) => member.displayName === "Ethan Chen").id);
+  assert.equal(handover.proposedOwnerId, "father");
+  assert.deepEqual(handover.missingFields, ["time", "scope"]);
   assert.equal(handover.status, "draft");
   assert.equal(handover.confirmationRequiredFromId, null);
   assert.deepEqual(handover.acknowledgements, []);

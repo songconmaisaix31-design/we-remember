@@ -1,8 +1,8 @@
 const FAMILY_ID = "family-willow";
-const MOTHER_ID = "member-mother";
-const FATHER_ID = "member-father";
-const GRANDMOTHER_ID = "member-grandmother";
-const AGENT_ID = "member-family-agent";
+const MOTHER_ID = "mother";
+const FATHER_ID = "father";
+const GRANDMOTHER_ID = "grandmother";
+const AGENT_ID = "agent";
 const DOMAIN_ID = "domain-grandmother-follow-up";
 const EVENT_ID = "event-grandmother-follow-up";
 const DOMAIN_TODO_ID = "todo-confirm-follow-up-logistics";
@@ -120,7 +120,7 @@ export function createGoldenResponsibilityFixture() {
         fromOwnerId: MOTHER_ID,
         proposedOwnerId: FATHER_ID,
         status: "draft",
-        missingFields: ["scopeIncluded"],
+        missingFields: ["time", "scope"],
         confirmationRequiredFromId: null,
         acknowledgements: [],
         expectedDomainVersion: 1,
