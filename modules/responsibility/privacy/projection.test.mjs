@@ -101,6 +101,47 @@ test("revoked and malformed consent fail closed", () => {
   assert.equal(projectResponsibilityState(state([fact], [consent(), { ...consent("revoked", "consent-2"), version: 2 }]), "father").projection.familyEvidence.length, 0);
 });
 
+test("family projection requires one continuous canonical consent chain", () => {
+  const fact = createEvidence(evidence()).evidence;
+  const invalidChains = [
+    [{ ...consent(), version: 2 }],
+    [consent(), { ...consent("granted", "consent-gap-v3"), version: 3 }],
+    [consent(), { ...consent("granted", "consent-corrupt-v2"), status: "corrupt", version: 2 }],
+    [consent(), { ...consent("granted", "consent-duplicate-v1"), version: 1 }],
+  ];
+  for (const consents of invalidChains) {
+    assert.deepEqual(projectResponsibilityState(state([fact], consents), "father").projection.familyEvidence, []);
+  }
+});
+
+test("consent input accepts only exact own enumerable data properties", () => {
+  const fact = createEvidence(evidence()).evidence;
+  let accessorReads = 0;
+  const accessor = { ...consent("revoked", "consent-accessor"), version: 2 };
+  Object.defineProperty(accessor, "status", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return accessorReads < 4 ? "revoked" : "granted";
+    },
+  });
+  const symbolField = { ...consent("revoked", "consent-symbol"), [Symbol("extra")]: true };
+  const hiddenField = { ...consent("revoked", "consent-hidden") };
+  Object.defineProperty(hiddenField, "extra", { enumerable: false, value: true });
+  const hiddenStatus = { ...consent("revoked", "consent-hidden-status") };
+  Object.defineProperty(hiddenStatus, "status", { enumerable: false, value: "revoked" });
+  const inherited = Object.assign(Object.create(consent("revoked", "consent-prototype")), {
+    id: "consent-inherited",
+    version: 2,
+  });
+
+  for (const candidate of [accessor, symbolField, hiddenField, hiddenStatus, inherited]) {
+    assert.equal(revokeFamilyConsent(fact, "mother", candidate).error.code, "consent_invalid");
+  }
+  assert.equal(accessorReads, 0);
+});
+
 test("exact-contract human Members support mother, father, and grandmother perspectives", () => {
   const snapshot = state([createEvidence(evidence()).evidence], [consent()]);
   for (const id of ["mother", "father", "grandmother"]) {
@@ -271,12 +312,21 @@ test("audit projection requires matching live accepted handover and domain state
 
 test("timestamps require a real ISO calendar instant and support explicit offsets", () => {
   const snapshot = liveAcceptedState();
-  const offsetAudit = { ...acceptedAudit, occurredAt: "2026-08-30T08:00:00+08:00" };
-  assert.equal(projectAudit([offsetAudit], "family-a", snapshot).length, 1);
+  for (const occurredAt of [
+    "2026-08-30T08:00:00+08:00",
+    "2026-08-30T14:00:00+14:00",
+    "2026-08-30T00:00:00-14:00",
+  ]) {
+    assert.equal(projectAudit([{ ...acceptedAudit, occurredAt }], "family-a", snapshot).length, 1);
+  }
 
   for (const occurredAt of [
     "2026-02-30T00:00:00.000Z",
     "2026-08-30T24:00:00.000Z",
+    "2026-08-30T00:00:00+14:01",
+    "2026-08-30T00:00:00-14:01",
+    "2026-08-30T00:00:00+15:00",
+    "2026-08-30T00:00:00+23:00",
     "August 30, 2026",
     new Date("2026-08-30T00:00:00.000Z"),
   ]) {
@@ -284,9 +334,11 @@ test("timestamps require a real ISO calendar instant and support explicit offset
   }
 
   const accepted = structuredClone(acceptedFixture());
-  accepted.notices[0].createdAt = "2030-02-30T00:00:00.000Z";
-  assert.deepEqual(
-    projectResponsibilityState(accepted, { actorId: "mother", familyId: "family-willow" }).projection.notices,
-    [],
-  );
+  for (const createdAt of ["2030-02-30T00:00:00.000Z", "2030-04-10T00:00:00+15:00"]) {
+    accepted.notices[0].createdAt = createdAt;
+    assert.deepEqual(
+      projectResponsibilityState(accepted, { actorId: "mother", familyId: "family-willow" }).projection.notices,
+      [],
+    );
+  }
 });

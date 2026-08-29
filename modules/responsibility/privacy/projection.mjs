@@ -1,3 +1,5 @@
+import { isIsoCalendarInstant } from "../model/time.mjs";
+
 const EVIDENCE_KINDS = new Set(["shareable_fact", "private_expression", "responsibility_request"]);
 const DOMAIN_STATUSES = new Set(["active", "paused", "completed"]);
 const HANDOVER_STATUSES = new Set(["draft", "pending_info", "pending_ack", "accepted", "declined", "expired"]);
@@ -25,36 +27,13 @@ const ACCEPTED_AUDIT_METADATA_KEYS = Object.freeze([
   "handoverVersion",
 ]);
 const SAFE_IDENTIFIER = /^[a-z][a-z0-9:_-]{0,127}$/;
-const ISO_TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isText = (value) => typeof value === "string" && value.length > 0;
 const isIdentifier = (value) => typeof value === "string" && SAFE_IDENTIFIER.test(value);
 const isVersion = (value) => Number.isSafeInteger(value) && value >= 1;
+const isTimestamp = isIsoCalendarInstant;
 const fail = (code) => freeze({ ok: false, error: { code } });
-
-function isTimestamp(value) {
-  if (typeof value !== "string") return false;
-  const match = ISO_TIMESTAMP.exec(value);
-  if (!match) return false;
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const hour = Number(match[4]);
-  const minute = Number(match[5]);
-  const second = Number(match[6]);
-  const offsetHour = match[8] === "Z" ? 0 : Number(match[10]);
-  const offsetMinute = match[8] === "Z" ? 0 : Number(match[11]);
-  const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
-  const daysByMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-  return month >= 1 && month <= 12
-    && day >= 1 && day <= daysByMonth[month - 1]
-    && hour <= 23 && minute <= 59 && second <= 59
-    && offsetHour <= 23 && offsetMinute <= 59
-    && Number.isFinite(Date.parse(value));
-}
 
 function freeze(value, seen = new WeakSet()) {
   if (value && typeof value === "object" && !seen.has(value)) {
@@ -69,16 +48,46 @@ function onlyKeys(value, allowed) {
   return Object.keys(value).every((key) => allowed.has(key));
 }
 
+function closedDataRecord(value, fields) {
+  try {
+    if (!isRecord(value)) return null;
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) return null;
+    const keys = Reflect.ownKeys(value);
+    if (keys.length !== fields.size
+      || keys.some((key) => typeof key !== "string" || !fields.has(key))) return null;
+    const entries = [];
+    for (const key of fields) {
+      const descriptor = Object.getOwnPropertyDescriptor(value, key);
+      if (descriptor?.enumerable !== true || !Object.hasOwn(descriptor, "value")) return null;
+      entries.push([key, descriptor.value]);
+    }
+    return Object.fromEntries(entries);
+  } catch {
+    return null;
+  }
+}
+
 function validEvidence(value) {
   return isRecord(value) && onlyKeys(value, EVIDENCE_KEYS) && isText(value.id) && isText(value.familyId)
     && isText(value.subjectMemberId) && isText(value.createdByMemberId) && EVIDENCE_KINDS.has(value.kind)
     && value.visibility === "private" && isText(value.content) && isVersion(value.version);
 }
 
-function validConsent(value) {
-  return isRecord(value) && onlyKeys(value, CONSENT_KEYS) && isText(value.id) && isText(value.evidenceId)
-    && isText(value.subjectMemberId) && value.grantedVisibility === "family"
-    && (value.status === "granted" || value.status === "revoked") && isVersion(value.version);
+function normalizeConsent(value) {
+  const consent = closedDataRecord(value, CONSENT_KEYS);
+  if (!consent || !isText(consent.id) || !isText(consent.evidenceId)
+    || !isText(consent.subjectMemberId) || consent.grantedVisibility !== "family"
+    || (consent.status !== "granted" && consent.status !== "revoked")
+    || !isVersion(consent.version)) return null;
+  return freeze({
+    id: consent.id,
+    evidenceId: consent.evidenceId,
+    subjectMemberId: consent.subjectMemberId,
+    grantedVisibility: consent.grantedVisibility,
+    status: consent.status,
+    version: consent.version,
+  });
 }
 
 function validMember(value) {
@@ -95,12 +104,39 @@ function safeEvidence(evidence) {
   return freeze({ id: evidence.id, familyId: evidence.familyId, subjectMemberId: evidence.subjectMemberId, createdByMemberId: evidence.createdByMemberId, kind: evidence.kind, visibility: evidence.visibility, content: evidence.content, version: evidence.version });
 }
 
+function normalizeConsentList(consents) {
+  if (!Array.isArray(consents)) return null;
+  const normalized = [];
+  for (const consent of consents) {
+    const record = normalizeConsent(consent);
+    if (!record) return null;
+    normalized.push(record);
+  }
+  return normalized;
+}
+
+function consentChain(consents, evidenceId, subjectMemberId) {
+  const matching = consents
+    .filter((consent) => consent.evidenceId === evidenceId && consent.subjectMemberId === subjectMemberId)
+    .sort((left, right) => left.version - right.version);
+  return matching.every((consent, index) => consent.version === index + 1) ? matching : null;
+}
+
 function hasGrantedConsent(evidence, consents) {
-  const matching = consents.filter((consent) => validConsent(consent) && consent.evidenceId === evidence.id && consent.subjectMemberId === evidence.subjectMemberId);
-  if (matching.length === 0) return false;
-  const latestVersion = Math.max(...matching.map((consent) => consent.version));
-  const latest = matching.filter((consent) => consent.version === latestVersion);
-  return latest.length === 1 && latest[0].status === "granted";
+  const chain = consentChain(consents, evidence.id, evidence.subjectMemberId);
+  return chain !== null && chain.length > 0 && chain[chain.length - 1].status === "granted";
+}
+
+/** Returns the only valid next version for one complete, continuous consent chain. */
+export function getNextConsentVersion(consents, consent) {
+  const candidate = normalizeConsent(consent);
+  const normalized = normalizeConsentList(consents);
+  if (!candidate || !normalized) return null;
+  const chain = consentChain(normalized, candidate.evidenceId, candidate.subjectMemberId);
+  if (chain === null) return null;
+  if (chain.length === 0) return 1;
+  const latestVersion = chain[chain.length - 1].version;
+  return latestVersion < Number.MAX_SAFE_INTEGER ? latestVersion + 1 : null;
 }
 
 function uniqueMember(members, memberId, familyId, humanOnly = false) {
@@ -151,18 +187,20 @@ export function createEvidence(input) {
 
 /** Returns a separate granted Consent record; Evidence itself is never mutated. */
 export function grantFamilyConsent(evidence, actorId, consent) {
-  if (!validEvidence(evidence) || !validConsent(consent)) return fail("consent_invalid");
-  if (actorId !== evidence.subjectMemberId || consent.subjectMemberId !== evidence.subjectMemberId || consent.evidenceId !== evidence.id) return fail("consent_forbidden");
-  if (consent.status !== "granted") return fail("consent_invalid");
-  return freeze({ ok: true, consent: { ...consent } });
+  const normalized = normalizeConsent(consent);
+  if (!validEvidence(evidence) || !normalized) return fail("consent_invalid");
+  if (actorId !== evidence.subjectMemberId || normalized.subjectMemberId !== evidence.subjectMemberId || normalized.evidenceId !== evidence.id) return fail("consent_forbidden");
+  if (normalized.status !== "granted") return fail("consent_invalid");
+  return freeze({ ok: true, consent: normalized });
 }
 
 /** Revocation is subject-only and returns an independent revoked Consent record. */
 export function revokeFamilyConsent(evidence, actorId, consent) {
-  if (!validEvidence(evidence) || !validConsent(consent)) return fail("consent_invalid");
-  if (actorId !== evidence.subjectMemberId || consent.subjectMemberId !== evidence.subjectMemberId || consent.evidenceId !== evidence.id) return fail("consent_forbidden");
-  if (consent.status !== "revoked") return fail("consent_invalid");
-  return freeze({ ok: true, consent: { ...consent } });
+  const normalized = normalizeConsent(consent);
+  if (!validEvidence(evidence) || !normalized) return fail("consent_invalid");
+  if (actorId !== evidence.subjectMemberId || normalized.subjectMemberId !== evidence.subjectMemberId || normalized.evidenceId !== evidence.id) return fail("consent_forbidden");
+  if (normalized.status !== "revoked") return fail("consent_invalid");
+  return freeze({ ok: true, consent: normalized });
 }
 
 function projectAcceptedAuditMetadata(metadata, entry) {
@@ -379,11 +417,11 @@ export function projectResponsibilityState(state, viewerContext) {
   if (!viewer) return fail("viewer_unauthorized");
   const presentationRole = isText(viewer.role) ? viewer.role : viewer.id;
   const evidence = Array.isArray(state.evidence) ? state.evidence.filter(validEvidence) : [];
-  const consents = Array.isArray(state.consents) ? state.consents.filter(validConsent) : [];
+  const consents = normalizeConsentList(Array.isArray(state.consents) ? state.consents : []);
   const privateEvidence = evidence.filter((item) => item.familyId === viewer.familyId && (item.subjectMemberId === viewer.id || item.createdByMemberId === viewer.id)).map(safeEvidence);
   const familyEvidence = evidence.filter((item) => item.familyId === viewer.familyId
     && item.kind === "shareable_fact" && uniqueMember(state.members, item.subjectMemberId, viewer.familyId, true)
-    && hasGrantedConsent(item, consents)).map(safeEvidence);
+    && consents !== null && hasGrantedConsent(item, consents)).map(safeEvidence);
   const audit = Object.hasOwn(state, "auditLog") ? state.auditLog : state.audit;
   const domains = projectDomains(state, viewer.familyId);
   const domainIds = new Set(domains.map((domain) => domain.id));

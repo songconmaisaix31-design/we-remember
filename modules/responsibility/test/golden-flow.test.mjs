@@ -13,6 +13,7 @@ import {
   goldenScenarioProvider,
   grantFixtureFamilyConsent,
   projectResponsibilityState,
+  revokeFixtureFamilyConsent,
   reviseFixtureHandover,
   submitFixtureHandover,
 } from "../index.mjs";
@@ -26,6 +27,15 @@ const EXPLICIT_TODO_ID = "todo-prepare-follow-up-questions";
 const FACT_EVIDENCE_ID = "evidence-grandmother-follow-up-fact";
 
 const findById = (items, id) => items.find((item) => item.id === id);
+
+const familyConsent = (status, version, id) => ({
+  id,
+  evidenceId: FACT_EVIDENCE_ID,
+  subjectMemberId: "grandmother",
+  grantedVisibility: "family",
+  status,
+  version,
+});
 
 function submitAndCompleteProposal(state, expiresAt = null) {
   const submitted = submitFixtureHandover(state, {
@@ -211,6 +221,120 @@ test("runs the available golden P0 flow without a Store or Service API", async (
   assert.equal(keyConflict.ok, false);
   assert.equal(keyConflict.code, ACCEPT_HANDOVER_FAILURE.IDEMPOTENCY);
   assert.strictEqual(keyConflict.nextState, acceptedState);
+});
+
+test("consent versions are monotonic and a successful revoke immediately removes family visibility", () => {
+  const initial = createGoldenResponsibilityFixture();
+  const unauthorized = grantFixtureFamilyConsent(initial, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "father",
+    consent: familyConsent("granted", 1, "consent-unauthorized"),
+  });
+  assert.equal(unauthorized.error.code, "consent_forbidden");
+  assert.strictEqual(unauthorized.nextState, initial);
+
+  const initialGap = grantFixtureFamilyConsent(initial, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("granted", 2, "consent-initial-gap"),
+  });
+  assert.equal(initialGap.error.code, "version_conflict");
+  assert.strictEqual(initialGap.nextState, initial);
+
+  const higherVersionHistory = structuredClone(initial);
+  higherVersionHistory.consents.push(familyConsent("granted", 2, "consent-existing-v2"));
+  const staleRevoke = revokeFixtureFamilyConsent(higherVersionHistory, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("revoked", 1, "consent-stale-v1"),
+  });
+  assert.equal(staleRevoke.error.code, "version_conflict");
+  assert.strictEqual(staleRevoke.nextState, higherVersionHistory);
+  assert.equal(staleRevoke.nextState.consents.length, 1);
+
+  const granted = grantFixtureFamilyConsent(initial, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("granted", 1, "consent-grant-v1"),
+  });
+  assert.equal(granted.ok, true);
+  assert.equal(granted.nextState.consents.length, 1);
+  assert.deepEqual(
+    projectResponsibilityState(granted.nextState, "father").projection.familyEvidence.map((item) => item.id),
+    [FACT_EVIDENCE_ID],
+  );
+
+  let accessorReads = 0;
+  const accessorRevoke = familyConsent("revoked", 2, "consent-accessor-revoke");
+  Object.defineProperty(accessorRevoke, "status", {
+    enumerable: true,
+    get() {
+      accessorReads += 1;
+      return accessorReads < 4 ? "revoked" : "granted";
+    },
+  });
+  const rejectedAccessor = revokeFixtureFamilyConsent(granted.nextState, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: accessorRevoke,
+  });
+  assert.equal(rejectedAccessor.error.code, "consent_invalid");
+  assert.strictEqual(rejectedAccessor.nextState, granted.nextState);
+  assert.equal(accessorReads, 0);
+
+  for (const consent of [
+    familyConsent("revoked", 1, "consent-duplicate-v1"),
+    familyConsent("revoked", 3, "consent-gap-v3"),
+  ]) {
+    const rejected = revokeFixtureFamilyConsent(granted.nextState, {
+      evidenceId: FACT_EVIDENCE_ID,
+      actorId: "grandmother",
+      consent,
+    });
+    assert.equal(rejected.error.code, "version_conflict");
+    assert.strictEqual(rejected.nextState, granted.nextState);
+    assert.equal(rejected.nextState.consents.length, 1);
+  }
+
+  const duplicateHistory = structuredClone(granted.nextState);
+  duplicateHistory.consents.push({ ...duplicateHistory.consents[0], id: "consent-duplicate-history" });
+  const ambiguousLatest = revokeFixtureFamilyConsent(duplicateHistory, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("revoked", 2, "consent-after-duplicate-history"),
+  });
+  assert.equal(ambiguousLatest.error.code, "version_conflict");
+  assert.strictEqual(ambiguousLatest.nextState, duplicateHistory);
+
+  const corruptHistory = structuredClone(granted.nextState);
+  corruptHistory.consents.push({
+    ...familyConsent("granted", 2, "consent-corrupt-history-v2"),
+    status: "corrupt",
+  });
+  const afterCorruptHistory = grantFixtureFamilyConsent(corruptHistory, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("granted", 3, "consent-after-corrupt-history-v3"),
+  });
+  assert.equal(afterCorruptHistory.error.code, "version_conflict");
+  assert.strictEqual(afterCorruptHistory.nextState, corruptHistory);
+  assert.deepEqual(
+    projectResponsibilityState(corruptHistory, "father").projection.familyEvidence,
+    [],
+  );
+
+  const revoked = revokeFixtureFamilyConsent(granted.nextState, {
+    evidenceId: FACT_EVIDENCE_ID,
+    actorId: "grandmother",
+    consent: familyConsent("revoked", 2, "consent-revoke-v2"),
+  });
+  assert.equal(revoked.ok, true);
+  assert.equal(revoked.nextState.consents.length, 2);
+  assert.deepEqual(revoked.nextState.consents.map((consent) => consent.version), [1, 2]);
+  assert.deepEqual(
+    projectResponsibilityState(revoked.nextState, "father").projection.familyEvidence,
+    [],
+  );
 });
 
 test("keeps ownership unchanged on decline and expiry branches", () => {
