@@ -10,6 +10,10 @@ const FAILURE = Object.freeze({
 
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === "string" && value.length > 0;
+const ISO_INSTANT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
+const isIsoInstant = (value) => isNonEmptyString(value)
+  && ISO_INSTANT.test(value)
+  && Number.isFinite(Date.parse(value));
 const failure = (code) => Object.freeze({ ok: false, code });
 const replaceById = (items, id, replacement) => items.map((item) => item.id === id ? replacement : item);
 
@@ -19,6 +23,7 @@ function fingerprint(command) {
     handoverId: command.handoverId,
     expectedHandoverVersion: command.expectedHandoverVersion,
     expectedDomainVersion: command.expectedDomainVersion,
+    now: command.now,
   });
 }
 
@@ -45,7 +50,7 @@ function immutableSnapshot(value) {
 export function acceptHandover(state, command) {
   if (!isObject(state) || !isObject(command) || !isNonEmptyString(command.idempotencyKey)
     || !isNonEmptyString(command.actorId) || !isNonEmptyString(command.handoverId)
-    || !isNonEmptyString(command.now) || !Number.isInteger(command.expectedHandoverVersion)
+    || !isIsoInstant(command.now) || !Number.isInteger(command.expectedHandoverVersion)
     || !Number.isInteger(command.expectedDomainVersion) || !Array.isArray(state.members)
     || !Array.isArray(state.domains) || !Array.isArray(state.handovers) || !Array.isArray(state.todos)
     || !Array.isArray(state.reminders) || !Array.isArray(state.auditLog) || !Array.isArray(state.notices)) {
@@ -98,12 +103,22 @@ export function acceptHandover(state, command) {
     return { ...todo, assigneeId: handover.proposedOwnerId, version: todo.version + 1 };
   });
   const todoVersions = new Map(nextTodos.map((todo) => [todo.id, todo.version]));
+  const migratedDomainReviewIds = new Set(
+    (Array.isArray(state.domainReviews) ? state.domainReviews : [])
+      .filter((review) => isObject(review) && isNonEmptyString(review.id)
+        && review.familyId === domain.familyId && review.domainId === domain.id)
+      .map((review) => review.id),
+  );
   const nextReminders = state.reminders.map((reminder) => {
     if (reminder.sourceType === "todo" && reminder.status === "pending" && migratedTodoIds.has(reminder.sourceId)) {
       return { ...reminder, recipientId: handover.proposedOwnerId, sourceVersion: todoVersions.get(reminder.sourceId) };
     }
     if (reminder.sourceType === "handover" && reminder.sourceId === handover.id && reminder.status === "pending") {
       return { ...reminder, status: "completed", sourceVersion: nextHandover.version };
+    }
+    if (reminder.sourceType === "domain_review" && reminder.routingBasis === "domain_owner"
+      && reminder.status === "pending" && migratedDomainReviewIds.has(reminder.sourceId)) {
+      return { ...reminder, recipientId: handover.proposedOwnerId };
     }
     return reminder;
   });

@@ -80,6 +80,20 @@ test("does not mutate input and does not return partial state on a failed check"
   assert.equal(result.code, ACCEPT_HANDOVER_FAILURE.PERMISSION);
 });
 
+test("rejects an invalid acceptance instant before changing any state", () => {
+  for (const { invalidNow, handoverOverrides = {} } of [
+    { invalidNow: "not-a-timestamp", handoverOverrides: { expiresAt: null } },
+    { invalidNow: "2026-08-30" },
+  ]) {
+    const input = state({ handovers: [{ ...state().handovers[0], ...handoverOverrides }] });
+    const before = structuredClone(input);
+    const result = acceptHandover(input, { ...command, now: invalidNow });
+    assert.deepEqual(result, { ok: false, code: ACCEPT_HANDOVER_FAILURE.INVALID_INPUT });
+    assert.equal("nextState" in result, false);
+    assert.deepEqual(input, before);
+  }
+});
+
 test("same idempotency key replays the accepted snapshot and mismatched reuse conflicts", () => {
   const first = acceptHandover(state(), command);
   const replay = acceptHandover(first.nextState, command);
@@ -88,6 +102,34 @@ test("same idempotency key replays the accepted snapshot and mismatched reuse co
   assert.equal(replay.nextState, first.nextState);
   const conflict = acceptHandover(first.nextState, { ...command, actorId: "mother" });
   assert.deepEqual(conflict, { ok: false, code: ACCEPT_HANDOVER_FAILURE.IDEMPOTENCY });
+  const timeConflict = acceptHandover(first.nextState, { ...command, now: "2026-08-30T00:00:01.000Z" });
+  assert.deepEqual(timeConflict, { ok: false, code: ACCEPT_HANDOVER_FAILURE.IDEMPOTENCY });
+});
+
+test("reroutes only mapped pending domain-review reminders and preserves their source version", () => {
+  const input = state({
+    domainReviews: [
+      { id: "review-current", familyId: "family-1", domainId: "domain-1", version: 11 },
+      { id: "review-other", familyId: "family-1", domainId: "domain-2", version: 3 },
+    ],
+    reminders: [
+      ...state().reminders,
+      { id: "r-review-current", sourceType: "domain_review", sourceId: "review-current", sourceVersion: 11, routingBasis: "domain_owner", recipientId: "mother", status: "pending" },
+      { id: "r-review-completed", sourceType: "domain_review", sourceId: "review-current", sourceVersion: 10, routingBasis: "domain_owner", recipientId: "mother", status: "completed" },
+      { id: "r-review-other", sourceType: "domain_review", sourceId: "review-other", sourceVersion: 3, routingBasis: "domain_owner", recipientId: "mother", status: "pending" },
+      { id: "r-review-unmapped", sourceType: "domain_review", sourceId: "review-missing", sourceVersion: 5, routingBasis: "domain_owner", recipientId: "mother", status: "pending" },
+    ],
+  });
+  const before = structuredClone(input);
+  const result = acceptHandover(input, command);
+
+  assert.equal(result.ok, true);
+  assert.equal(byId(result.nextState.reminders, "r-review-current").recipientId, "father");
+  assert.equal(byId(result.nextState.reminders, "r-review-current").sourceVersion, 11);
+  for (const id of ["r-review-completed", "r-review-other", "r-review-unmapped"]) {
+    assert.equal(byId(result.nextState.reminders, id).recipientId, "mother");
+  }
+  assert.deepEqual(input, before);
 });
 
 test("rejects wrong actor, agent ownership, stale versions, incomplete, expired, and invalid transitions with stable codes", () => {
