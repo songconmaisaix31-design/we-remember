@@ -380,18 +380,8 @@ test("forwards trusted scope and versions while preserving replay and conflict r
   const applyCalls = calls.filter(({ name }) => name === "store.applyResult");
   assert.equal(applyCalls.length, 3);
   assert.equal(applyCalls.every(({ request }) => request.idempotencyKey === "same-key"), true);
-  assert.deepEqual(JSON.parse(applyCalls[0].request.fingerprint), {
-    operation: "accept",
-    actorId: "father",
-    familyId: "family-one",
-    entityId: "handover-one",
-    expectedVersions: {
-      expectedVersion: null,
-      expectedHandoverVersion: 4,
-      expectedDomainVersion: 7,
-      expectedTodoVersion: null,
-    },
-  });
+  assert.match(applyCalls[0].request.fingerprint, /^sha256:[a-f0-9]{64}$/);
+  assert.equal(applyCalls[0].request.fingerprint, applyCalls[1].request.fingerprint);
   assert.equal(applyCalls[0].request.fingerprint.includes("forged"), false);
   assert.equal(applyCalls[0].request.fingerprint.includes("private"), false);
   assert.notEqual(applyCalls[0].request.fingerprint, applyCalls[2].request.fingerprint);

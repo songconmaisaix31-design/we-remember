@@ -66,16 +66,16 @@ Starts after all three tracks pass. It owns only `modules/responsibility/index.m
 Track checks:
 
 ```powershell
-node --test modules/responsibility/model
-node --test modules/responsibility/handover
-node --test modules/responsibility/privacy
+node --test "modules/responsibility/model/**/*.test.mjs"
+node --test "modules/responsibility/handover/**/*.test.mjs"
+node --test "modules/responsibility/privacy/**/*.test.mjs"
 ```
 
 Integration and final checks:
 
 ```powershell
 python -B scripts/verify_app.py
-node --test modules/responsibility
+npm --prefix modules/responsibility test
 node --check app/app.js
 node --check scripts/browser_qa.mjs
 git diff --check

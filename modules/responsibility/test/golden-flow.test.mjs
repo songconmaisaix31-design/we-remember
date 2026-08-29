@@ -246,6 +246,8 @@ test("completes a todo and stops only its pending reminder through fixture reduc
   const completed = completeFixtureTodo(derived.nextState, {
     todoId: DOMAIN_TODO_ID,
     expectedVersion: 1,
+    actorId: "mother",
+    familyId: "family-willow",
   });
   assert.equal(completed.ok, true);
   assert.equal(findById(completed.nextState.todos, DOMAIN_TODO_ID).status, "completed");
@@ -262,6 +264,8 @@ test("completes a todo and stops only its pending reminder through fixture reduc
   const stale = completeFixtureTodo(completed.nextState, {
     todoId: DOMAIN_TODO_ID,
     expectedVersion: 1,
+    actorId: "mother",
+    familyId: "family-willow",
   });
   assert.equal(stale.ok, false);
   assert.strictEqual(stale.nextState, completed.nextState);

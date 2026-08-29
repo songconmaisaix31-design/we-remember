@@ -3,6 +3,7 @@ import {
   createGoldenResponsibilityFixture as createFixtureRecords,
   createGrandmotherPerspectiveFacts,
   createMotherPerspectiveFacts,
+  createPerspectiveFacts,
 } from "./fixtures/index.mjs";
 import { acceptHandover } from "./handover/acceptance/index.mjs";
 import {
@@ -26,6 +27,7 @@ export {
   createFatherPerspectiveFacts,
   createGrandmotherPerspectiveFacts,
   createMotherPerspectiveFacts,
+  createPerspectiveFacts,
 };
 export {
   goldenMotherBurdenSuggestion,
@@ -49,6 +51,44 @@ function nextSnapshot(state, replacements) {
 
 function unchanged(state, result) {
   return Object.freeze({ ...result, nextState: state });
+}
+
+function denialResult(code = "permission_denied") {
+  return {
+    ok: false,
+    error: Object.freeze({
+      code,
+      message: "Responsibility operation could not be completed.",
+    }),
+  };
+}
+
+function denied(state, code = "permission_denied") {
+  return unchanged(state, denialResult(code));
+}
+
+function isActiveMember(member) {
+  return isRecord(member) && (member.status === undefined || member.status === "active");
+}
+
+function resolveUniqueMember(state, memberId) {
+  if (!Array.isArray(state?.members) || typeof memberId !== "string" || memberId.length === 0) {
+    return null;
+  }
+  const matches = state.members.filter((member) => isRecord(member) && member.id === memberId);
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function enforcePendingOwner(state, result) {
+  if (!result.ok || result.handover?.status !== "pending_ack") return result;
+  const proposedOwner = resolveUniqueMember(state, result.handover.proposedOwnerId);
+  if (!proposedOwner
+    || proposedOwner.familyId !== result.handover.familyId
+    || proposedOwner.kind !== "human"
+    || !isActiveMember(proposedOwner)) {
+    return denialResult();
+  }
+  return result;
 }
 
 function lifecycleContext(state, command) {
@@ -78,22 +118,24 @@ export function createGoldenResponsibilityFixture() {
 /** Applies the lifecycle leaf reducer and replaces the fixture snapshot only on success. */
 export function submitFixtureHandover(state, command = {}) {
   const context = lifecycleContext(state, command);
-  return applyLifecycleResult(state, submitHandover({
+  const result = submitHandover({
     ...context,
     actorId: command.actorId,
     expectedVersion: command.expectedVersion,
-  }));
+  });
+  return applyLifecycleResult(state, enforcePendingOwner(state, result));
 }
 
 /** Applies a proposal revision without introducing a persistence or service abstraction. */
 export function reviseFixtureHandover(state, command = {}) {
   const context = lifecycleContext(state, command);
-  return applyLifecycleResult(state, reviseHandover({
+  const result = reviseHandover({
     ...context,
     actorId: command.actorId,
     expectedVersion: command.expectedVersion,
     patch: command.patch,
-  }));
+  });
+  return applyLifecycleResult(state, enforcePendingOwner(state, result));
 }
 
 /** Applies a decline and preserves the original snapshot on every failed check. */
@@ -123,7 +165,50 @@ export function acceptFixtureHandover(state, command = {}) {
 }
 
 /** Derives all fixture reminder recipients from source semantics, never from a default recipient. */
-export function deriveFixtureReminders(state, { domainReviews = [] } = {}) {
+function reminderIdentity(plan) {
+  if (!isRecord(plan)
+    || typeof plan.id !== "string"
+    || typeof plan.sourceType !== "string"
+    || typeof plan.sourceId !== "string"
+    || !Number.isSafeInteger(plan.sourceVersion)
+    || typeof plan.routingBasis !== "string"
+    || typeof plan.recipientId !== "string") {
+    return null;
+  }
+  return JSON.stringify([
+    plan.sourceType,
+    plan.sourceId,
+    plan.sourceVersion,
+    plan.routingBasis,
+    plan.recipientId,
+  ]);
+}
+
+function mergeReminderPlans(existingPlans, derivedPlans) {
+  const terminalByIdentity = new Map();
+  for (const plan of Array.isArray(existingPlans) ? existingPlans : []) {
+    const identity = reminderIdentity(plan);
+    if (identity && (plan.status === "completed" || plan.status === "cancelled")) {
+      terminalByIdentity.set(identity, plan);
+    }
+  }
+
+  const mergedByIdentity = new Map();
+  for (const plan of derivedPlans) {
+    const identity = reminderIdentity(plan);
+    if (identity) mergedByIdentity.set(identity, terminalByIdentity.get(identity) ?? plan);
+  }
+  for (const [identity, plan] of terminalByIdentity) {
+    if (!mergedByIdentity.has(identity)) mergedByIdentity.set(identity, plan);
+  }
+  return [...mergedByIdentity.values()].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+export function deriveFixtureReminders(state, options = {}) {
+  const suppliedOptions = isRecord(options) ? options : {};
+  const domainReviews = Object.hasOwn(suppliedOptions, "domainReviews")
+    ? suppliedOptions.domainReviews
+    : (Array.isArray(state?.domainReviews) ? state.domainReviews : []);
   const result = deriveReminderPlans({
     events: state?.events,
     todos: state?.todos,
@@ -132,15 +217,29 @@ export function deriveFixtureReminders(state, { domainReviews = [] } = {}) {
     handovers: state?.handovers,
   });
   if (!result.ok) return unchanged(state, result);
+  const reminders = mergeReminderPlans(state?.reminders, result.value);
   return Object.freeze({
     ...result,
-    nextState: nextSnapshot(state, { reminders: result.value }),
+    value: reminders,
+    nextState: nextSnapshot(state, { reminders }),
   });
 }
 
 /** Completes one fixture todo through the leaf reducer and applies both returned collections. */
-export function completeFixtureTodo(state, { todoId, expectedVersion } = {}) {
+export function completeFixtureTodo(state, command = {}) {
+  const { todoId, expectedVersion, actorId, familyId } = command;
   const todo = Array.isArray(state?.todos) ? state.todos.find((item) => item.id === todoId) : undefined;
+  const actor = resolveUniqueMember(state, actorId);
+  if (todo
+    && (!actor
+      || !isActiveMember(actor)
+      || actor.familyId !== familyId
+      || todo.familyId !== familyId
+      || actor.id !== todo.assigneeId
+      || (actor.kind === "agent" && todo.assignmentBasis !== "explicit")
+      || (actor.kind !== "human" && actor.kind !== "agent"))) {
+    return denied(state);
+  }
   const result = completeTodo(todo, state?.reminders, expectedVersion);
   if (!result.ok) return unchanged(state, result);
   return Object.freeze({
@@ -200,8 +299,13 @@ export function createResponsibilityPorts({ provider } = {}) {
   return Object.freeze({
     analyzeResponsibility: (state, request) => analyzeResponsibility({
       provider,
-      input: request?.input,
-      members: state?.members,
+      familyId: request?.familyId,
+      input: isRecord(request?.input)
+        ? { ...request.input, actorId: request.actorId, familyId: request.familyId }
+        : { value: request?.input, actorId: request?.actorId, familyId: request?.familyId },
+      members: Array.isArray(state?.members)
+        ? state.members.filter((member) => member?.familyId === request?.familyId)
+        : [],
     }),
     submitHandover: (state, command) => commandResultForStore(withDerivedReminders(
       submitFixtureHandover(state, command),
@@ -215,12 +319,34 @@ export function createResponsibilityPorts({ provider } = {}) {
     expireHandover: (state, command) => commandResultForStore(withDerivedReminders(
       expireFixtureHandover(state, command),
     )),
-    acceptHandover: (state, command) => commandResultForStore(
+    acceptHandover: (state, command) => commandResultForStore(withDerivedReminders(
       acceptFixtureHandover(state, command),
-    ),
+    )),
     completeTodo: (state, command) => commandResultForStore(
       completeFixtureTodo(state, command),
     ),
-    projectForActor: (state, request) => projectResponsibilityState(state, request?.actorId),
+    projectForActor: (state, request) => {
+      const actor = resolveUniqueMember(state, request?.actorId);
+      if (!actor
+        || actor.familyId !== request?.familyId
+        || actor.kind !== "human"
+        || !isActiveMember(actor)
+        || (state?.familyId !== undefined && state.familyId !== request.familyId)) {
+        return { ok: false, error: { code: "viewer_unauthorized" } };
+      }
+      const familyState = {
+        ...state,
+        members: state.members.filter((member) => member?.familyId === request.familyId),
+      };
+      const result = projectResponsibilityState(familyState, request.actorId);
+      if (!result.ok) return result;
+      return freezeDeep({
+        ...result,
+        projection: {
+          ...result.projection,
+          responsibility: createPerspectiveFacts(state, request.actorId),
+        },
+      });
+    },
   });
 }
