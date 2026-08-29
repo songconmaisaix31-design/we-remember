@@ -63,7 +63,7 @@ interface ConfirmScheduleDraftResponse {
   status: "scheduled";
   notificationReceipts: Array<{
     recipientId: string;
-    channel: "in_app" | "feishu" | "dingtalk" | "wechat";
+    channel: "in_app" | "feishu" | "dingtalk" | "wecom" | "wechat_clawbot";
     status: "queued" | "not_authorized" | "failed";
   }>;
 }
@@ -73,10 +73,10 @@ Confirmation is atomic: persist the event and notification outbox entries togeth
 
 ## Channel gateway
 
-`contracts/channel-gateway.openapi.yaml` is the HTTP source of truth for custom bots. Native WeCom, Feishu, and DingTalk adapters normalize into the same internal types but keep provider SDK types private.
+`contracts/channel-gateway.openapi.yaml` is the HTTP source of truth for custom bots and the isolated ClawBot sidecar bridge. Native WeCom, Feishu, and DingTalk adapters normalize into the same internal types but keep provider SDK types private.
 
 ```ts
-type ChannelPlatform = "wecom" | "feishu" | "dingtalk" | "custom_bot";
+type ChannelPlatform = "wecom" | "wechat_clawbot" | "feishu" | "dingtalk" | "custom_bot";
 
 interface InboundEnvelope {
   schemaVersion: 1;
@@ -116,3 +116,11 @@ v1\n{unixTimestamp}\n{nonce}\n{method}\n{path}\n{lowercaseSha256HexOfBody}
 ```
 
 `X-WR-Signature` is lowercase hex HMAC-SHA256 over that canonical string. The gateway verifies the body hash, a 300-second timestamp window, a single-use nonce, installation status, and the signature before parsing JSON. Reuse of `(installationId, platformEventId)` with a different body hash returns `409 event_identity_conflict`.
+
+### Personal WeChat ClawBot boundary
+
+- `wechat_clawbot` and `wecom` are never interchangeable installations.
+- ClawBot supports only the direct-message surface declared by the installed Tencent channel plugin.
+- QR login and channel credentials remain in the OpenClaw state directory; the product stores only an opaque installation reference and revocable bindings.
+- A ClawBot sender must complete the same short-lived product pairing flow as every other external identity.
+- The adapter cannot read historical chats, infer membership, or elevate a sender into an internal role.

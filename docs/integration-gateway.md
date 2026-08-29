@@ -1,6 +1,6 @@
 # Integration Gateway Architecture
 
-Status: Contract defined; runtime adapters not implemented
+Status: Contract defined; local CLI control plane verified; runtime adapters not implemented
 
 ## Outcome
 
@@ -10,8 +10,8 @@ We Remember exposes one connection-center experience while preserving platform-s
 
 | Product label | Official integration surface | Inbound | Outbound | First-release position |
 | --- | --- | --- | --- | --- |
-| WeChat / WeCom | WeCom intelligent robot or approved service-account flow | Supported only in the configured enterprise/service context | Supported according to installed capability | Feasibility gate before activation |
-| Personal WeChat group | No approved general-purpose bot surface | Not supported | Not supported | Blocked; no simulated login or scraping |
+| WeCom | WeCom intelligent robot or enterprise application | Supported only in the configured enterprise context | Supported according to installed capability | Separate enterprise installation |
+| Personal WeChat / ClawBot | Tencent `openclaw-weixin` channel plugin | Paired direct messages only | Direct-message replies | Isolated sidecar; no group-chat claim |
 | Feishu | Enterprise custom app with bot capability and event subscription | Direct messages, group mentions, card actions | Message API and cards | Preferred first native adapter |
 | DingTalk | Application robot with supported event or Stream mode | Direct/group bot interactions | Robot message APIs/cards | Second native adapter |
 | Feishu/DingTalk custom webhook | Group webhook | No | Group push only | Outbound-only label |
@@ -46,6 +46,8 @@ The HTTP or SDK callback acknowledges a verified, durably claimed event without 
 - An unbound sender receives only a fixed pairing instruction; their content is not stored as a product message.
 - A group requires explicit conversation binding and bot addressing. Platform membership drift never changes family-space membership.
 - External payloads cannot select internal member, space, role, visibility, consent, or authorization fields.
+- WeCom and ClawBot installations never share identity bindings, conversation bindings, credentials, or capability flags.
+- ClawBot QR login proves control of a WeChat channel account, not membership in a family space; product pairing remains mandatory.
 
 ## Canonical route decisions
 
@@ -90,11 +92,12 @@ The router is deterministic and does not call a model. Agent use begins only aft
 ## Rollout order
 
 1. Validate the contract with fictional signed fixtures.
-2. Implement one Feishu direct-message adapter, identity binding, inbox, reply, outbox, revocation, and deletion.
+2. Use authenticated `lark-cli` to freeze the exact Feishu event and send command schemas, then implement one direct-message adapter, identity binding, inbox, reply, outbox, revocation, and deletion.
 3. Add signed actions with authenticated web fallback.
-4. Add DingTalk behind the proven contract.
-5. Activate WeCom only after the exact tenant, group type, and robot capability pass a feasibility test.
-6. Add family groups after mention gating, consent, and membership-drift tests pass.
+4. Use authenticated `dws` to freeze the DingTalk personal-event and bot-send schemas, then add DingTalk behind the proven contract.
+5. Bridge Tencent ClawBot through the signed gateway for paired direct messages only.
+6. Activate WeCom only after the exact tenant, group type, and robot capability pass a feasibility test.
+7. Add supported enterprise family groups after mention gating, consent, and membership-drift tests pass.
 
 ## Official references
 
@@ -107,3 +110,5 @@ The router is deterministic and does not call a model. Agent use begins only aft
 - [Feishu send-message API](https://open.feishu.cn/document/server-docs/im-v1/message/create)
 - [DingTalk robot overview](https://open.dingtalk.com/document/orgapp/robot-overview)
 - [DingTalk custom robot access](https://open.dingtalk.com/document/orgapp/custom-robot-access)
+- [DingTalk Workspace CLI](https://gitee.com/DingTalk-Real-AI/dingtalk-workspace-cli)
+- [Tencent OpenClaw Weixin plugin](https://github.com/Tencent/openclaw-weixin)

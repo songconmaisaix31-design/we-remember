@@ -3,9 +3,9 @@ info:
   title: We Remember Channel Gateway
   version: 1.0.0
   description: >-
-    Signed transport contract for custom bots. Native WeCom, Feishu, and
-    DingTalk adapters normalize into the same internal envelope after their
-    platform-specific verification.
+    Signed transport contract for custom bots and the isolated personal-WeChat
+    ClawBot sidecar. Native WeCom, Feishu, and DingTalk adapters normalize into
+    the same internal envelope after their platform-specific verification.
 servers:
   - url: https://gateway.example.invalid
     description: Placeholder only; deployment must provide the real gateway URL.

@@ -10,6 +10,8 @@ The prototype is a dependency-free static web application:
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
 - `docs/integration-gateway.md`: routing, identity, privacy, reliability, and platform-adapter boundaries.
+- `docs/cli-integration-runbook.md`: credential-free CLI bootstrap and runtime handoff rules.
+- `scripts/check_channel_clis.ps1`: safe local readiness check for `lark-cli`, `dws`, and OpenClaw without exposing account identifiers or credentials.
 - `scripts/verify_app.py`: structural contract checks that require no installed packages.
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
@@ -54,6 +56,8 @@ verify/decrypt -> strict normalize -> durable inbox dedupe -> explicit identity 
 ```
 
 Inbound payloads cannot select `memberId`, `spaceId`, role, visibility, or authority. The gateway acknowledges a verified, durably claimed event before Agent or domain processing. Custom bots use the HMAC-signed OpenAPI contract; platform adapters implement the same canonical envelope after native verification.
+
+`lark-cli` and `dws` are provisioning, discovery, and bounded verification tools. Production event consumption and delivery run in dedicated adapters with explicit installation identities, durable inbox/outbox state, and secret-manager references. The Tencent ClawBot plugin remains an OpenClaw sidecar and is bridged through the signed gateway; its local account state never enters the browser or product database.
 
 ## Motion rules
 

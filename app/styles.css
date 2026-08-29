@@ -231,7 +231,9 @@ button { color: inherit; }
 .dingtalk-logo { background: #168bff; }
 .bot-logo { background: var(--ink); font-size: 10px; letter-spacing: .04em; }
 .connection-state { padding: 5px 8px; color: #8a6731; border-radius: 999px; background: #fae7bd; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.connection-state.ready { color: #476659; background: #dcebe2; }
 .bot-card .connection-state { color: #476659; background: #dcebe2; }
+.clawbot-logo { width: 39px; color: #266c52; background: #d9eee4; font-size: 8px; letter-spacing: -0.02em; }
 .channel-copy { min-height: 42px; margin: 14px 0 12px; color: #5f5851; font-size: 11px; line-height: 1.65; }
 .capability-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .capability-row span { padding: 5px 8px; color: var(--sage); border-radius: 999px; background: #edf3ee; font-size: 9px; }

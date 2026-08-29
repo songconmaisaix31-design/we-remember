@@ -73,10 +73,11 @@ if (scenario === "integrations") {
     channelCards: document.querySelectorAll('.channel-card').length,
     customDetailVisible: getComputedStyle(document.querySelector('[data-detail="custom-bot"]')).display !== 'none',
     endpointVisible: document.querySelector('.endpoint-preview').getBoundingClientRect().width > 0,
-    personalWechatBlocked: document.body.textContent.includes('普通个人微信群没有官方通用双向机器人接口'),
+    personalWechatSeparated: document.querySelector('[data-channel="wecom"]') !== null && document.querySelector('[data-channel="wechat-clawbot"]') !== null,
+    clawBotDirectOnly: document.body.textContent.includes('不含微信群'),
     mobileColumns: getComputedStyle(document.querySelector('.channel-grid')).gridTemplateColumns.split(' ').length
   })`));
-  if (metrics.scrollWidth > metrics.viewportWidth || !metrics.dialogOpen || metrics.channelCards !== 4 || !metrics.customDetailVisible || !metrics.endpointVisible || !metrics.personalWechatBlocked) {
+  if (metrics.scrollWidth > metrics.viewportWidth || !metrics.dialogOpen || metrics.channelCards !== 5 || !metrics.customDetailVisible || !metrics.endpointVisible || !metrics.personalWechatSeparated || !metrics.clawBotDirectOnly) {
     throw new Error(`Integration center failed: ${JSON.stringify(metrics)}`);
   }
   if (width <= 520 && metrics.mobileColumns !== 1) {

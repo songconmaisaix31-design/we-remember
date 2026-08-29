@@ -178,8 +178,8 @@
         </header>
 
         <div class="connection-summary" role="status">
-          <span><i></i> 4 个连接器</span>
-          <span>0 已连接</span>
+          <span><i></i> 5 个连接器</span>
+          <span>飞书、钉钉 CLI 已认证</span>
           <span>凭据只进入部署密钥管理</span>
         </div>
 
@@ -187,11 +187,11 @@
           <article class="channel-card" data-channel="wecom">
             <div class="channel-heading">
               <span class="channel-logo wecom-logo" aria-hidden="true">微</span>
-              <div><h3>微信 / 企业微信</h3><p>企业微信智能机器人</p></div>
+              <div><h3>企业微信</h3><p>企业智能机器人</p></div>
               <span class="connection-state">待连接</span>
             </div>
-            <p class="channel-copy">支持经企业验证的机器人会话。普通个人微信群没有官方通用双向机器人接口。</p>
-            <div class="capability-row"><span>双向消息</span><span>身份绑定</span><span class="blocked">个人微信群阻断</span></div>
+            <p class="channel-copy">使用企业主体和管理员授权的机器人能力，与个人微信连接完全隔离。</p>
+            <div class="capability-row"><span>双向消息</span><span>身份绑定</span><span>企业会话</span></div>
             <button class="channel-action" type="button" data-channel-detail="wecom">查看接入要求 <span>→</span></button>
             <div class="channel-detail" data-detail="wecom" hidden>
               <strong>启用条件</strong>
@@ -199,18 +199,33 @@
             </div>
           </article>
 
+          <article class="channel-card clawbot-card" data-channel="wechat-clawbot">
+            <div class="channel-heading">
+              <span class="channel-logo clawbot-logo" aria-hidden="true">Claw</span>
+              <div><h3>个人微信</h3><p>腾讯 ClawBot 私聊</p></div>
+              <span class="connection-state">待扫码绑定</span>
+            </div>
+            <p class="channel-copy">通过 OpenClaw 的腾讯微信插件绑定个人 ClawBot，只接入已配对的私聊。</p>
+            <div class="capability-row"><span>扫码授权</span><span>私聊双向</span><span class="blocked">不含微信群</span></div>
+            <button class="channel-action" type="button" data-channel-detail="wechat-clawbot">查看绑定边界 <span>→</span></button>
+            <div class="channel-detail" data-detail="wechat-clawbot" hidden>
+              <strong>独立绑定</strong>
+              <p>二维码与凭据只由 OpenClaw 插件管理。扫码后仍需一次性产品配对；不会读取历史聊天，也不会继承企业微信身份或权限。</p>
+            </div>
+          </article>
+
           <article class="channel-card" data-channel="feishu">
             <div class="channel-heading">
               <span class="channel-logo feishu-logo" aria-hidden="true">飞</span>
               <div><h3>飞书</h3><p>企业自建应用机器人</p></div>
-              <span class="connection-state">待连接</span>
+              <span class="connection-state ready">CLI 已认证</span>
             </div>
             <p class="channel-copy">接收单聊、群内 @ 和卡片动作；回复与提醒使用应用消息接口。</p>
             <div class="capability-row"><span>事件订阅</span><span>消息卡片</span><span>应用消息</span></div>
             <button class="channel-action" type="button" data-channel-detail="feishu">查看接入要求 <span>→</span></button>
             <div class="channel-detail" data-detail="feishu" hidden>
               <strong>启用条件</strong>
-              <p>创建企业自建应用、启用机器人、申请最小消息权限、配置事件订阅并由管理员发布。自定义群 Webhook 只作为出站通知。</p>
+              <p>本机 lark-cli 已通过身份验证。下一步仍需确定企业自建应用、机器人身份、最小消息权限、事件订阅和目标会话；自定义群 Webhook 只作为出站通知。</p>
             </div>
           </article>
 
@@ -218,14 +233,14 @@
             <div class="channel-heading">
               <span class="channel-logo dingtalk-logo" aria-hidden="true">钉</span>
               <div><h3>钉钉</h3><p>企业应用机器人</p></div>
-              <span class="connection-state">待连接</span>
+              <span class="connection-state ready">CLI 已认证</span>
             </div>
             <p class="channel-copy">通过应用机器人事件或 Stream 模式接收交互，回复保持在来源会话。</p>
             <div class="capability-row"><span>Stream</span><span>群内交互</span><span>消息回执</span></div>
             <button class="channel-action" type="button" data-channel-detail="dingtalk">查看接入要求 <span>→</span></button>
             <div class="channel-detail" data-detail="dingtalk" hidden>
               <strong>启用条件</strong>
-              <p>需要企业应用、机器人能力、管理员授权和明确的事件接入方式。自定义 Webhook 只发送群消息，不视为双向机器人。</p>
+              <p>本机 dws 的用户 OAuth 已通过验证，但企业机器人尚未配置。下一步仍需确定 robot code、授权范围和目标会话；自定义 Webhook 只发送群消息，不视为双向机器人。</p>
             </div>
           </article>
 
@@ -259,7 +274,7 @@
         </section>
 
         <footer class="integrations-footer">
-          <p>此页面展示已确立的连接边界；当前本地原型未配置任何平台凭据。</p>
+          <p>本机 CLI 认证状态已核验；凭据不进入页面或仓库，生产消息适配器仍未启动。</p>
           <a href="../contracts/channel-gateway.openapi.yaml" target="_blank" rel="noreferrer">查看机器人 OpenAPI</a>
         </footer>
       </div>
