@@ -15,7 +15,8 @@ export const HandoverCode = Object.freeze({
 });
 
 const PENDING_STATUSES = new Set(["pending_info", "pending_ack"]);
-const REVISABLE_FIELDS = new Set(["proposedOwnerId", "expiresAt"]);
+const REVISABLE_FIELDS = new Set(["proposedOwnerId", "expiresAt", "missingFields"]);
+const SAFE_FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const HANDOVER_FIELDS = new Set([
   "id", "familyId", "domainId", "fromOwnerId", "proposedOwnerId", "status",
   "missingFields", "confirmationRequiredFromId", "acknowledgements", "expectedDomainVersion", "expiresAt", "version",
@@ -44,8 +45,20 @@ function hasValue(value) {
   return typeof value === "string" ? value.trim().length > 0 : value !== null && value !== undefined;
 }
 
-function missingFields(handover) {
+function structuralMissingFields(handover) {
   return HANDOVER_REQUIRED_FIELDS.filter((field) => !hasValue(handover[field]));
+}
+
+function hasSafeMissingFields(value) {
+  return Array.isArray(value) && value.every((field) => typeof field === "string" && SAFE_FIELD_NAME.test(field));
+}
+
+function hasUniqueSafeMissingFields(value) {
+  return hasSafeMissingFields(value) && new Set(value).size === value.length;
+}
+
+function missingFields(handover) {
+  return [...new Set([...handover.missingFields, ...structuralMissingFields(handover)])];
 }
 
 function belongsToDomain(handover, domain) {
@@ -80,6 +93,7 @@ export function submitHandover({ domain, handover, actorId, expectedVersion } = 
   if (actorId !== domain.accountableOwnerId || actorId !== handover.fromOwnerId) {
     return result(false, HandoverCode.PERMISSION, domain, handover);
   }
+  if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
 
   const next = nextPendingHandover({ ...handover, version: handover.version + 1 });
   return result(next.status === "pending_info" ? false : true, next.status === "pending_info" ? HandoverCode.INCOMPLETE : HandoverCode.OK, domain, next);
@@ -92,7 +106,11 @@ export function reviseHandover({ domain, handover, actorId, expectedVersion, pat
   }
   if (!versionMatches(handover, expectedVersion) || !domainVersionMatches(handover, domain)) return result(false, HandoverCode.CONFLICT, domain, handover);
   if (!canManage(handover, actorId)) return result(false, HandoverCode.PERMISSION, domain, handover);
+  if (!hasSafeMissingFields(handover.missingFields)) return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).some((key) => !REVISABLE_FIELDS.has(key))) {
+    return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
+  }
+  if ("missingFields" in patch && !hasUniqueSafeMissingFields(patch.missingFields)) {
     return result(false, HandoverCode.INVALID_TRANSITION, domain, handover);
   }
 

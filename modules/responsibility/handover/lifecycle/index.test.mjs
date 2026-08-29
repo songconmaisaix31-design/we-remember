@@ -27,6 +27,22 @@ test("submit exposes deterministic missing fields and retains owner", () => {
   assert.deepEqual(result.handover.missingFields, ["proposedOwnerId", "expiresAt"]); assert.equal(result.handover.confirmationRequiredFromId, null); assertOwnerUnchanged(result);
 });
 
+test("submit preserves upstream missing information alongside structural gaps without mutating inputs", () => {
+  const handover = { ...base, proposedOwnerId: "", expiresAt: null, missingFields: ["scopeIncluded", "scopeIncluded"] };
+  const before = clone(handover);
+  const result = submitHandover({ domain, handover, actorId: "mother" });
+  assert.equal(result.code, HandoverCode.INCOMPLETE); assert.equal(result.handover.status, "pending_info");
+  assert.deepEqual(result.handover.missingFields, ["scopeIncluded", "proposedOwnerId", "expiresAt"]); assertOwnerUnchanged(result);
+  assert.deepEqual(handover, before);
+});
+
+test("submit retains complete proposal policy missing information", () => {
+  const result = submitHandover({ domain, handover: { ...base, missingFields: ["scopeIncluded", "nextActionId"] }, actorId: "mother" });
+  assert.equal(result.code, HandoverCode.INCOMPLETE); assert.equal(result.handover.status, "pending_info");
+  assert.deepEqual(result.handover.missingFields, ["scopeIncluded", "nextActionId"]); assert.equal(result.handover.confirmationRequiredFromId, null);
+  assertOwnerUnchanged(result);
+});
+
 test("submit rejects wrong transition, actor, and stale version", () => {
   assert.equal(submitHandover({ domain, handover: { ...base, status: "pending_ack" }, actorId: "mother" }).code, HandoverCode.INVALID_TRANSITION);
   assert.equal(submitHandover({ domain, handover: base, actorId: "father" }).code, HandoverCode.PERMISSION);
@@ -41,6 +57,27 @@ test("revise accepts only allowlisted patch fields, clears acknowledgements, and
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "mother", patch: { status: "accepted" } }).code, HandoverCode.INVALID_TRANSITION);
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "grandmother", patch: {} }).code, HandoverCode.PERMISSION);
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 2, patch: {} }).code, HandoverCode.CONFLICT);
+});
+
+test("revise can clear explicit missing information only after structural fields are complete", () => {
+  const pending = { ...base, status: "pending_info", missingFields: ["scopeIncluded"], acknowledgements: [{ memberId: "father", handoverVersion: 3, acknowledgedAt: "2026-08-01T00:00:00.000Z" }], version: 3 };
+  const before = clone(pending);
+  const patch = { missingFields: [] };
+  const beforePatch = clone(patch);
+  const result = reviseHandover({ domain, handover: pending, actorId: "mother", expectedVersion: 3, patch });
+  assert.equal(result.code, HandoverCode.OK); assert.equal(result.handover.status, "pending_ack"); assert.deepEqual(result.handover.missingFields, []);
+  assert.deepEqual(result.handover.acknowledgements, []); assert.equal(result.handover.version, 4); assertOwnerUnchanged(result);
+  assert.deepEqual(pending, before); assert.deepEqual(patch, beforePatch);
+});
+
+test("revise rejects malformed missingFields patches without mutating inputs", () => {
+  const pending = { ...base, status: "pending_info", missingFields: ["scopeIncluded"], version: 3 };
+  const before = clone(pending);
+  for (const missingFields of ["scopeIncluded", [""], ["private proposal"], ["scopeIncluded", 1], ["scopeIncluded", "scopeIncluded"]]) {
+    const result = reviseHandover({ domain, handover: pending, actorId: "mother", expectedVersion: 3, patch: { missingFields } });
+    assert.equal(result.code, HandoverCode.INVALID_TRANSITION); assertOwnerUnchanged(result);
+  }
+  assert.deepEqual(pending, before);
 });
 
 test("decline requires pending acknowledgement and the current confirmer", () => {
