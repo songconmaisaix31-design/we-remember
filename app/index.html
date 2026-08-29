@@ -40,6 +40,9 @@
           <button class="nav-item" type="button" data-view="people">
             <span aria-hidden="true">◎</span><span>家人和通知</span>
           </button>
+          <button class="nav-item" type="button" data-view="integrations">
+            <span aria-hidden="true">⌁</span><span>连接中心</span>
+          </button>
         </nav>
 
         <div class="rail-note">
@@ -156,11 +159,111 @@
       </aside>
 
       <nav class="mobile-nav surface" aria-label="移动端导航">
-        <button class="is-active" type="button"><span>✦</span><small>Agent</small></button>
-        <button type="button"><span>▦</span><small>时间表</small></button>
-        <button type="button"><span>◎</span><small>家人</small></button>
+        <button class="is-active" type="button" data-view="agent"><span>✦</span><small>Agent</small></button>
+        <button type="button" data-view="schedule"><span>▦</span><small>时间表</small></button>
+        <button type="button" data-view="people"><span>◎</span><small>家人</small></button>
+        <button type="button" data-view="integrations"><span>⌁</span><small>连接</small></button>
       </nav>
     </div>
+
+    <dialog class="integrations-dialog" id="integrations-dialog" aria-labelledby="integrations-title">
+      <div class="integrations-shell">
+        <header class="integrations-header">
+          <div>
+            <p class="eyebrow">CONNECTION CENTER</p>
+            <h2 id="integrations-title">让 Agent 在常用聊天工具里工作</h2>
+            <p>每个平台独立验证身份和会话，再统一进入时间表。连接前不会读取历史聊天。</p>
+          </div>
+          <button class="dialog-close" type="button" data-close-dialog aria-label="关闭连接中心">×</button>
+        </header>
+
+        <div class="connection-summary" role="status">
+          <span><i></i> 4 个连接器</span>
+          <span>0 已连接</span>
+          <span>凭据只进入部署密钥管理</span>
+        </div>
+
+        <section class="channel-grid" aria-label="可用连接器">
+          <article class="channel-card" data-channel="wecom">
+            <div class="channel-heading">
+              <span class="channel-logo wecom-logo" aria-hidden="true">微</span>
+              <div><h3>微信 / 企业微信</h3><p>企业微信智能机器人</p></div>
+              <span class="connection-state">待连接</span>
+            </div>
+            <p class="channel-copy">支持经企业验证的机器人会话。普通个人微信群没有官方通用双向机器人接口。</p>
+            <div class="capability-row"><span>双向消息</span><span>身份绑定</span><span class="blocked">个人微信群阻断</span></div>
+            <button class="channel-action" type="button" data-channel-detail="wecom">查看接入要求 <span>→</span></button>
+            <div class="channel-detail" data-detail="wecom" hidden>
+              <strong>启用条件</strong>
+              <p>需要企业微信主体、管理员授权、可安装智能机器人的目标会话，以及通过官方能力验证。不会采用模拟登录、非官方协议或会话抓取。</p>
+            </div>
+          </article>
+
+          <article class="channel-card" data-channel="feishu">
+            <div class="channel-heading">
+              <span class="channel-logo feishu-logo" aria-hidden="true">飞</span>
+              <div><h3>飞书</h3><p>企业自建应用机器人</p></div>
+              <span class="connection-state">待连接</span>
+            </div>
+            <p class="channel-copy">接收单聊、群内 @ 和卡片动作；回复与提醒使用应用消息接口。</p>
+            <div class="capability-row"><span>事件订阅</span><span>消息卡片</span><span>应用消息</span></div>
+            <button class="channel-action" type="button" data-channel-detail="feishu">查看接入要求 <span>→</span></button>
+            <div class="channel-detail" data-detail="feishu" hidden>
+              <strong>启用条件</strong>
+              <p>创建企业自建应用、启用机器人、申请最小消息权限、配置事件订阅并由管理员发布。自定义群 Webhook 只作为出站通知。</p>
+            </div>
+          </article>
+
+          <article class="channel-card" data-channel="dingtalk">
+            <div class="channel-heading">
+              <span class="channel-logo dingtalk-logo" aria-hidden="true">钉</span>
+              <div><h3>钉钉</h3><p>企业应用机器人</p></div>
+              <span class="connection-state">待连接</span>
+            </div>
+            <p class="channel-copy">通过应用机器人事件或 Stream 模式接收交互，回复保持在来源会话。</p>
+            <div class="capability-row"><span>Stream</span><span>群内交互</span><span>消息回执</span></div>
+            <button class="channel-action" type="button" data-channel-detail="dingtalk">查看接入要求 <span>→</span></button>
+            <div class="channel-detail" data-detail="dingtalk" hidden>
+              <strong>启用条件</strong>
+              <p>需要企业应用、机器人能力、管理员授权和明确的事件接入方式。自定义 Webhook 只发送群消息，不视为双向机器人。</p>
+            </div>
+          </article>
+
+          <article class="channel-card bot-card" data-channel="custom-bot">
+            <div class="channel-heading">
+              <span class="channel-logo bot-logo" aria-hidden="true">API</span>
+              <div><h3>自定义机器人</h3><p>签名 HTTPS 接口</p></div>
+              <span class="connection-state">契约已定义</span>
+            </div>
+            <p class="channel-copy">第三方机器人把消息标准化后送入网关；Agent 回复由可靠 outbox 推送回机器人。</p>
+            <div class="endpoint-preview">
+              <span>POST</span><code>/gateway/v1/installations/{id}/events</code>
+            </div>
+            <div class="capability-row"><span>HMAC-SHA256</span><span>5 分钟防重放</span><span>幂等事件</span></div>
+            <button class="channel-action" type="button" data-channel-detail="custom-bot">查看接口约束 <span>→</span></button>
+            <div class="channel-detail" data-detail="custom-bot" hidden>
+              <strong>v1 签名与回执</strong>
+              <p>签名绑定时间戳、nonce、HTTP 方法、路径和 body SHA-256。网关返回 202 只代表事件已持久接收；投递、阅读和完成是不同状态。</p>
+            </div>
+          </article>
+        </section>
+
+        <section class="routing-strip" aria-label="统一消息路径">
+          <div><span>01</span><strong>平台验签</strong><small>拒绝伪造与重放</small></div>
+          <i aria-hidden="true">→</i>
+          <div><span>02</span><strong>绑定身份</strong><small>不靠昵称猜成员</small></div>
+          <i aria-hidden="true">→</i>
+          <div><span>03</span><strong>Agent 草稿</strong><small>有后果动作先确认</small></div>
+          <i aria-hidden="true">→</i>
+          <div><span>04</span><strong>可靠投递</strong><small>状态与回执分开</small></div>
+        </section>
+
+        <footer class="integrations-footer">
+          <p>此页面展示已确立的连接边界；当前本地原型未配置任何平台凭据。</p>
+          <a href="../contracts/channel-gateway.openapi.yaml" target="_blank" rel="noreferrer">查看机器人 OpenAPI</a>
+        </footer>
+      </div>
+    </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
     <script src="app.js"></script>

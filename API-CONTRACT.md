@@ -70,3 +70,49 @@ interface ConfirmScheduleDraftResponse {
 ```
 
 Confirmation is atomic: persist the event and notification outbox entries together. A revision conflict returns `409`; the same idempotency key returns the original result.
+
+## Channel gateway
+
+`contracts/channel-gateway.openapi.yaml` is the HTTP source of truth for custom bots. Native WeCom, Feishu, and DingTalk adapters normalize into the same internal types but keep provider SDK types private.
+
+```ts
+type ChannelPlatform = "wecom" | "feishu" | "dingtalk" | "custom_bot";
+
+interface InboundEnvelope {
+  schemaVersion: 1;
+  platform: ChannelPlatform;
+  installationId: string;
+  platformEventId: string;
+  platformConversationId: string;
+  platformSenderId: string;
+  surface: "direct" | "group";
+  eventKind: "message" | "action";
+  occurredAt: string;
+  receivedAt: string;
+  payload: InboundMessage | InboundAction;
+}
+```
+
+Provider payloads begin as `unknown`. Verification and strict parsing happen before an envelope is created. External requests never supply an internal member, family space, role, consent, visibility, or authorization decision.
+
+### Required records
+
+- `ChannelInstallation`: platform, tenant, ingress mode, capabilities, active/revoked status, and secret-manager configuration reference.
+- `ChannelIdentityBinding`: one verified external user to one member within an installation.
+- `ChannelConversationBinding`: one verified external conversation to one internal conversation and family space.
+- `ChannelInboxItem`: `(installationId, platformEventId)`, canonical payload hash, claim state, and content-retention reference.
+- `ChannelOutboxItem`: logical intent, resolved destination binding, attempt state, and content-free provider receipt.
+
+### Delivery truth
+
+The public states are `queued`, `accepted_by_gateway`, `accepted_by_provider`, `failed`, and `cancelled`. They do not imply that a person received, read, understood, consented to, or completed the underlying task.
+
+### Custom bot signing
+
+Custom bots sign the exact request target and body with secret-manager material that is never accepted by the product API:
+
+```text
+v1\n{unixTimestamp}\n{nonce}\n{method}\n{path}\n{lowercaseSha256HexOfBody}
+```
+
+`X-WR-Signature` is lowercase hex HMAC-SHA256 over that canonical string. The gateway verifies the body hash, a 300-second timestamp window, a single-use nonce, installation status, and the signature before parsing JSON. Reuse of `(installationId, platformEventId)` with a different body hash returns `409 event_identity_conflict`.

@@ -32,10 +32,30 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 
 ## Product boundaries
 
-- No calendar provider, messaging provider, account identity, or production Agent is connected in this prototype.
+- No calendar provider, messaging-provider credential, account identity, or production Agent is connected in this prototype.
 - The prototype uses deterministic local extraction for representative scenarios. Production extraction must implement the API contract and validate all model output.
 - Notifications remain consent- and authorization-gated. Mentioning a person does not automatically grant permission to notify them.
 - High-risk health, safety, financial, or legal content may create a draft but must not trigger consequential actions without human review.
+
+## Connection center
+
+The product exposes one connection center with four installation types:
+
+- WeCom intelligent robot for supported enterprise direct or internal-group interactions;
+- Feishu application bot for direct messages, group mentions, events, and cards;
+- DingTalk application bot for direct/group interactions through its supported event or Stream mode;
+- Custom bot through the signed HTTPS gateway contract.
+
+Every installation begins disconnected and shows its exact prerequisites. Custom outbound webhooks are labeled outbound-only. Ordinary personal WeChat groups are not presented as an officially supported bidirectional bot surface.
+
+Connection acceptance criteria:
+
+- The connection center is reachable from desktop and mobile navigation.
+- Each platform card distinguishes bidirectional application bots from outbound-only webhooks.
+- No UI asks for, reads, displays, or persists secret values in this static prototype.
+- The custom-bot card exposes the canonical event endpoint, signature version, acknowledgement semantics, and delivery webhook direction.
+- External identities and conversations remain unbound until an authenticated, short-lived pairing flow succeeds.
+- Platform acknowledgement, application acceptance, provider delivery, reading, and human confirmation are displayed as separate states.
 
 ## Visual source of truth
 

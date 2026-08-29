@@ -5,6 +5,7 @@
 - As of 2026-08-29, the repository contains a dependency-free SVG/HTML motion asset bundle under `svg-transition/`; no application framework or package manager is established.
 - `svg-transition/family-work-suite/` contains six roles with exact static family/work endpoints and two one-shot transition SVGs per role (24 SVGs total). The family forms use independent home activities rather than a child as an identity cue.
 - `app/` now contains a dependency-free conversational schedule UX prototype. Typed messages, live dictation, and auto-send voice messages lead to a confirmation-gated schedule draft; confirmation updates the in-page timeline and creates a truthful local notification receipt.
+- The prototype connection center presents WeCom, Feishu, DingTalk, and custom-bot installations with disconnected/truthful capability states. It does not request or store platform credentials.
 
 ## Durable Decisions
 
@@ -21,3 +22,6 @@
 - Conversation is the primary schedule-entry model. Natural language or voice produces a non-consequential draft first; calendar writes and notification outbox work require explicit human confirmation.
 - `API-CONTRACT.md` defines the future transcription, schedule-draft, and atomic confirmation boundaries. The static prototype must not claim production transcription, identity resolution, calendar persistence, or message delivery.
 - The accepted visual direction reuses the reference site's stable identity rail, translucent card depth, subtle `translateY(-4px)` hover lift, and short state transitions without copying its imagery or branding. Preserve reduced-motion behavior and verify both 1440 px desktop and true 390 px screenshots.
+- `contracts/channel-gateway.openapi.yaml` is the canonical custom-bot transport contract. Requests use versioned HMAC-SHA256 over timestamp, nonce, method, path, and body hash; verified events enter a durable inbox before routing, and replies leave through an idempotent outbox.
+- Native platform SDKs stay inside WeCom, Feishu, and DingTalk adapters. External payloads cannot select internal member, space, role, visibility, consent, or authority. Identity and conversation bindings are explicit and revocable.
+- Ordinary personal WeChat groups remain unsupported because no approved general-purpose official bot surface is promised. Do not use simulated login, unofficial protocol clients, or chat scraping. Custom Feishu/DingTalk webhooks are outbound-only and must not be labeled bidirectional bots.

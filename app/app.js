@@ -11,6 +11,7 @@ const voiceStateLabel = document.querySelector("#voice-state-label");
 const dictateButton = document.querySelector("#dictate-button");
 const voiceMessageButton = document.querySelector("#voice-message-button");
 const stopVoiceButton = document.querySelector("#stop-voice");
+const integrationsDialog = document.querySelector("#integrations-dialog");
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -221,10 +222,42 @@ dictateButton.addEventListener("click", () => startVoice("dictation"));
 voiceMessageButton.addEventListener("click", () => startVoice("voice_message"));
 stopVoiceButton.addEventListener("click", finishVoice);
 
-document.querySelectorAll(".nav-item, .mobile-nav button").forEach((button) => {
+const setActiveNavigation = (view) => {
+  document.querySelectorAll("[data-view]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.view === view);
+  });
+};
+
+document.querySelectorAll("[data-view]").forEach((button) => {
   button.addEventListener("click", () => {
-    const label = button.textContent.trim();
-    if (!/Agent|和 Agent/.test(label)) showToast("本轮先验证对话式创建主流程；该入口尚未连接独立页面。");
+    const view = button.dataset.view;
+    if (view === "integrations") {
+      setActiveNavigation(view);
+      integrationsDialog.showModal();
+      return;
+    }
+    setActiveNavigation("agent");
+    if (view !== "agent") showToast("本轮先验证对话式创建主流程；该入口尚未连接独立页面。");
+  });
+});
+
+document.querySelectorAll("[data-close-dialog]").forEach((button) => {
+  button.addEventListener("click", () => integrationsDialog.close());
+});
+
+integrationsDialog.addEventListener("click", (event) => {
+  if (event.target === integrationsDialog) integrationsDialog.close();
+});
+
+integrationsDialog.addEventListener("close", () => setActiveNavigation("agent"));
+
+document.querySelectorAll("[data-channel-detail]").forEach((button) => {
+  button.setAttribute("aria-expanded", "false");
+  button.addEventListener("click", () => {
+    const detail = document.querySelector(`[data-detail="${button.dataset.channelDetail}"]`);
+    const willOpen = detail.hidden;
+    detail.hidden = !willOpen;
+    button.setAttribute("aria-expanded", String(willOpen));
   });
 });
 

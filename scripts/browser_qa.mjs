@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 
-const [port, url, widthValue, heightValue, screenshotPath] = process.argv.slice(2);
+const [port, url, widthValue, heightValue, screenshotPath, scenario = "conversation"] = process.argv.slice(2);
 if (!port || !url || !widthValue || !heightValue || !screenshotPath) {
   throw new Error("Usage: node browser_qa.mjs <cdp-port> <url> <width> <height> <screenshot-path>");
 }
@@ -57,6 +57,50 @@ await send("Emulation.setDeviceMetricsOverride", {
 });
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
+
+if (scenario === "integrations") {
+  await evaluate(`(() => {
+    document.querySelector('[data-view="integrations"]').click();
+    document.querySelector('[data-channel-detail="custom-bot"]').click();
+    return true;
+  })()`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+
+  const metrics = JSON.parse(await evaluate(`JSON.stringify({
+    viewportWidth: window.innerWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    dialogOpen: document.querySelector('#integrations-dialog').open,
+    channelCards: document.querySelectorAll('.channel-card').length,
+    customDetailVisible: getComputedStyle(document.querySelector('[data-detail="custom-bot"]')).display !== 'none',
+    endpointVisible: document.querySelector('.endpoint-preview').getBoundingClientRect().width > 0,
+    personalWechatBlocked: document.body.textContent.includes('普通个人微信群没有官方通用双向机器人接口'),
+    mobileColumns: getComputedStyle(document.querySelector('.channel-grid')).gridTemplateColumns.split(' ').length
+  })`));
+  if (metrics.scrollWidth > metrics.viewportWidth || !metrics.dialogOpen || metrics.channelCards !== 4 || !metrics.customDetailVisible || !metrics.endpointVisible || !metrics.personalWechatBlocked) {
+    throw new Error(`Integration center failed: ${JSON.stringify(metrics)}`);
+  }
+  if (width <= 520 && metrics.mobileColumns !== 1) {
+    throw new Error(`Mobile integration layout failed: ${JSON.stringify(metrics)}`);
+  }
+  if (width <= 520) {
+    const bottomVisible = await evaluate(`(() => {
+      const shell = document.querySelector('.integrations-shell');
+      shell.scrollTop = shell.scrollHeight;
+      const card = document.querySelector('[data-channel="custom-bot"]');
+      const rect = card.getBoundingClientRect();
+      return rect.top < window.innerHeight && rect.bottom > 0;
+    })()`);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    if (!bottomVisible) throw new Error("Mobile custom-bot card cannot be reached by scrolling");
+  }
+
+  mkdirSync(dirname(screenshotPath), { recursive: true });
+  const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+  writeFileSync(screenshotPath, Buffer.from(screenshot.data, "base64"));
+  console.log(JSON.stringify({ status: "passed", scenario, width, height, ...metrics }, null, 2));
+  socket.close();
+  process.exit(0);
+}
 
 await evaluate(`(() => {
   const input = document.querySelector('#agent-input');

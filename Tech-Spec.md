@@ -7,6 +7,9 @@ The prototype is a dependency-free static web application:
 - `app/index.html`: semantic page structure and product copy.
 - `app/styles.css`: responsive layout, tokens, transitions, and reduced-motion handling.
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
+- `app/index.html` connection center: truthful platform capability and installation-state presentation.
+- `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
+- `docs/integration-gateway.md`: routing, identity, privacy, reliability, and platform-adapter boundaries.
 - `scripts/verify_app.py`: structural contract checks that require no installed packages.
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
@@ -40,6 +43,17 @@ When browser speech recognition is unavailable, controls enter an explicit unava
 - Agent output is a draft until a human confirms it.
 - Notification recipients must be resolved to authorized identities server-side; display names are not authority.
 - Logs must not contain raw audio or unnecessary transcript content.
+
+## Integration gateway
+
+The application and transport gateway are separate processes. Platform SDKs and credentials exist only inside adapters. The canonical flow is:
+
+```text
+verify/decrypt -> strict normalize -> durable inbox dedupe -> explicit identity and conversation binding
+-> deterministic route -> product command -> durable outbox -> platform renderer/sender -> safe receipt
+```
+
+Inbound payloads cannot select `memberId`, `spaceId`, role, visibility, or authority. The gateway acknowledges a verified, durably claimed event before Agent or domain processing. Custom bots use the HMAC-signed OpenAPI contract; platform adapters implement the same canonical envelope after native verification.
 
 ## Motion rules
 

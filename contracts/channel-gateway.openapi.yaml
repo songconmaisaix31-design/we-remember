@@ -1,0 +1,416 @@
+openapi: 3.1.0
+info:
+  title: We Remember Channel Gateway
+  version: 1.0.0
+  description: >-
+    Signed transport contract for custom bots. Native WeCom, Feishu, and
+    DingTalk adapters normalize into the same internal envelope after their
+    platform-specific verification.
+servers:
+  - url: https://gateway.example.invalid
+    description: Placeholder only; deployment must provide the real gateway URL.
+tags:
+  - name: Custom bot ingress
+  - name: Delivery receipts
+
+paths:
+  /gateway/v1/installations/{installationId}/events:
+    post:
+      operationId: acceptBotEvent
+      tags: [Custom bot ingress]
+      summary: Durably claim one signed custom-bot event
+      description: >-
+        Verification, body-size enforcement, replay defense, and strict parsing
+        happen before the event is claimed. A successful response proves only
+        gateway acceptance, not product completion or human delivery.
+      security:
+        - BotHmac: []
+      parameters:
+        - $ref: "#/components/parameters/InstallationId"
+        - $ref: "#/components/parameters/Timestamp"
+        - $ref: "#/components/parameters/Nonce"
+        - $ref: "#/components/parameters/ContentSha256"
+        - $ref: "#/components/parameters/Signature"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotEvent"
+      responses:
+        "202":
+          description: New or replayed event durably claimed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventClaimReceipt"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/InvalidSignature"
+        "409":
+          description: Event ID reused with a different canonical payload hash.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+              example:
+                type: event_identity_conflict
+                title: Event identity conflict
+                status: 409
+                requestId: req_01K3EXAMPLE
+        "413":
+          description: Body exceeds the configured gateway limit.
+        "429":
+          description: Installation-specific rate limit exceeded.
+
+  /gateway/v1/installations/{installationId}/delivery-receipts:
+    post:
+      operationId: recordBotDeliveryReceipt
+      tags: [Delivery receipts]
+      summary: Record a signed custom-bot delivery outcome
+      description: >-
+        The receipt is content-free. Delivered means accepted by the bot's
+        destination transport and does not prove reading, consent, or completion.
+      security:
+        - BotHmac: []
+      parameters:
+        - $ref: "#/components/parameters/InstallationId"
+        - $ref: "#/components/parameters/Timestamp"
+        - $ref: "#/components/parameters/Nonce"
+        - $ref: "#/components/parameters/ContentSha256"
+        - $ref: "#/components/parameters/Signature"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryReceipt"
+      responses:
+        "202":
+          description: Receipt accepted idempotently.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptAcknowledgement"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/InvalidSignature"
+        "409":
+          description: Receipt identity reused with contradictory data.
+
+webhooks:
+  botDelivery:
+    post:
+      operationId: deliverToCustomBot
+      summary: Deliver one signed outbound intent to the custom bot
+      description: >-
+        The gateway calls the verified installation delivery URL. The custom
+        bot validates X-WR-* headers using the same v1 canonical signature.
+      security:
+        - BotHmac: []
+      parameters:
+        - $ref: "#/components/parameters/Timestamp"
+        - $ref: "#/components/parameters/Nonce"
+        - $ref: "#/components/parameters/ContentSha256"
+        - $ref: "#/components/parameters/Signature"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotDelivery"
+      responses:
+        "202":
+          description: Delivery durably accepted by the custom bot.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [deliveryId, accepted]
+                properties:
+                  deliveryId:
+                    $ref: "#/components/schemas/EntityId"
+                  accepted:
+                    const: true
+        "409":
+          description: Delivery ID conflict.
+        "429":
+          description: Custom bot is rate limited.
+        "503":
+          description: Custom bot is temporarily unavailable.
+
+components:
+  securitySchemes:
+    BotHmac:
+      type: apiKey
+      in: header
+      name: X-WR-Signature
+      description: >-
+        Lowercase hex HMAC-SHA256 over
+        v1\n{timestamp}\n{nonce}\n{method}\n{path}\n{lowercaseBodySha256Hex}.
+        The shared key is resolved from the installation's secret-manager
+        configuration and never appears in this API.
+
+  parameters:
+    InstallationId:
+      name: installationId
+      in: path
+      required: true
+      schema:
+        $ref: "#/components/schemas/EntityId"
+    Timestamp:
+      name: X-WR-Timestamp
+      in: header
+      required: true
+      description: Unix seconds within the gateway's 300-second acceptance window.
+      schema:
+        type: string
+        pattern: "^[0-9]{10}$"
+    Nonce:
+      name: X-WR-Nonce
+      in: header
+      required: true
+      description: Single-use random value retained for replay defense.
+      schema:
+        type: string
+        minLength: 24
+        maxLength: 96
+        pattern: "^[A-Za-z0-9_-]+$"
+    ContentSha256:
+      name: X-WR-Content-SHA256
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-f0-9]{64}$"
+    Signature:
+      name: X-WR-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: "^v1=[a-f0-9]{64}$"
+
+  responses:
+    InvalidRequest:
+      description: Request failed strict validation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    InvalidSignature:
+      description: Signature, timestamp, body hash, nonce, or installation is invalid.
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    EntityId:
+      type: string
+      minLength: 8
+      maxLength: 128
+      pattern: "^[A-Za-z0-9_-]+$"
+
+    BotEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - eventId
+        - occurredAt
+        - conversation
+        - sender
+        - payload
+      properties:
+        schemaVersion:
+          const: 1
+        eventId:
+          type: string
+          minLength: 1
+          maxLength: 200
+        occurredAt:
+          type: string
+          format: date-time
+        conversation:
+          $ref: "#/components/schemas/ExternalConversation"
+        sender:
+          $ref: "#/components/schemas/ExternalSender"
+        payload:
+          oneOf:
+            - $ref: "#/components/schemas/TextMessage"
+            - $ref: "#/components/schemas/BotAction"
+
+    ExternalConversation:
+      type: object
+      additionalProperties: false
+      required: [id, surface, addressedToBot]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 200
+        surface:
+          enum: [direct, group]
+        addressedToBot:
+          type: boolean
+
+    ExternalSender:
+      type: object
+      additionalProperties: false
+      required: [id]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    TextMessage:
+      type: object
+      additionalProperties: false
+      required: [kind, messageId, text]
+      properties:
+        kind:
+          const: message
+        messageId:
+          type: string
+          minLength: 1
+          maxLength: 200
+        text:
+          type: string
+          minLength: 1
+          maxLength: 4000
+
+    BotAction:
+      type: object
+      additionalProperties: false
+      required: [kind, actionToken, actionValue]
+      properties:
+        kind:
+          const: action
+        actionToken:
+          type: string
+          minLength: 32
+          maxLength: 2048
+        actionValue:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    EventClaimReceipt:
+      type: object
+      additionalProperties: false
+      required: [requestId, receiptId, status, replayed]
+      properties:
+        requestId:
+          $ref: "#/components/schemas/EntityId"
+        receiptId:
+          $ref: "#/components/schemas/EntityId"
+        status:
+          const: accepted_by_gateway
+        replayed:
+          type: boolean
+
+    BotDelivery:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - deliveryId
+        - intentId
+        - purpose
+        - destination
+        - content
+      properties:
+        schemaVersion:
+          const: 1
+        deliveryId:
+          $ref: "#/components/schemas/EntityId"
+        intentId:
+          $ref: "#/components/schemas/EntityId"
+        purpose:
+          enum:
+            - conversation_reply
+            - consent_request
+            - schedule_reminder
+            - safe_error
+        destination:
+          type: object
+          additionalProperties: false
+          required: [conversationId]
+          properties:
+            conversationId:
+              type: string
+              minLength: 1
+              maxLength: 200
+        content:
+          type: object
+          additionalProperties: false
+          required: [type, text]
+          properties:
+            type:
+              const: text
+            text:
+              type: string
+              minLength: 1
+              maxLength: 4000
+
+    DeliveryReceipt:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, receiptId, deliveryId, status, observedAt]
+      properties:
+        schemaVersion:
+          const: 1
+        receiptId:
+          $ref: "#/components/schemas/EntityId"
+        deliveryId:
+          $ref: "#/components/schemas/EntityId"
+        status:
+          enum: [accepted_by_provider, failed]
+        observedAt:
+          type: string
+          format: date-time
+        safeErrorCode:
+          type: [string, "null"]
+          maxLength: 80
+
+    ReceiptAcknowledgement:
+      type: object
+      additionalProperties: false
+      required: [requestId, receiptId, accepted]
+      properties:
+        requestId:
+          $ref: "#/components/schemas/EntityId"
+        receiptId:
+          $ref: "#/components/schemas/EntityId"
+        accepted:
+          const: true
+
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, requestId]
+      properties:
+        type:
+          enum:
+            - invalid_request
+            - invalid_signature
+            - replay_rejected
+            - installation_inactive
+            - event_identity_conflict
+            - rate_limited
+            - internal_failure
+        title:
+          type: string
+          maxLength: 120
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        requestId:
+          $ref: "#/components/schemas/EntityId"
+
