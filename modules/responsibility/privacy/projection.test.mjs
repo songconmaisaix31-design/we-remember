@@ -29,7 +29,27 @@ const state = (items, consents = [], overrides = {}) => ({
   ...overrides,
 });
 
-function acceptedFixture() {
+function liveAcceptedState(overrides = {}) {
+  return state([], [], {
+    domains: [{
+      id: "domain-1", familyId: "family-a", accountableOwnerId: "father", status: "active",
+      visibility: "family", version: 3,
+    }],
+    handovers: [{
+      id: "handover-1", familyId: "family-a", domainId: "domain-1", fromOwnerId: "mother",
+      proposedOwnerId: "father", status: "accepted", confirmationRequiredFromId: null,
+      expectedDomainVersion: 2, version: 5,
+    }],
+    todos: [],
+    events: [],
+    domainReviews: [],
+    reminders: [],
+    notices: [],
+    ...overrides,
+  });
+}
+
+function pendingFixture() {
   const submitted = submitFixtureHandover(createGoldenResponsibilityFixture(), {
     handoverId: "handover-grandmother-follow-up-to-father",
     actorId: "mother",
@@ -41,8 +61,11 @@ function acceptedFixture() {
     expectedVersion: 2,
     patch: { missingFields: [], expiresAt: "2030-04-20T00:00:00.000Z" },
   });
-  const derived = deriveFixtureReminders(revised.nextState);
-  return acceptFixtureHandover(derived.nextState, {
+  return deriveFixtureReminders(revised.nextState).nextState;
+}
+
+function acceptedFixture() {
+  return acceptFixtureHandover(pendingFixture(), {
     handoverId: "handover-grandmother-follow-up-to-father",
     actorId: "father",
     expectedHandoverVersion: 3,
@@ -150,6 +173,34 @@ test("derives current responsibility state and scopes reminders and notices to t
   assert.deepEqual(grandmother.notices, []);
 });
 
+test("reminder projection rejects recipients that disagree with each live source", () => {
+  const snapshot = structuredClone(pendingFixture());
+  snapshot.domainReviews = [{
+    id: "review-grandmother-follow-up",
+    familyId: "family-willow",
+    domainId: "domain-grandmother-follow-up",
+    scheduledAt: null,
+    version: 1,
+  }];
+  snapshot.reminders = [
+    { id: "forged-event", sourceType: "event", sourceId: "event-grandmother-follow-up", sourceVersion: 1, routingBasis: "event_participant", recipientId: "father", status: "pending" },
+    { id: "forged-todo", sourceType: "todo", sourceId: "todo-confirm-follow-up-logistics", sourceVersion: 1, routingBasis: "todo_assignee", recipientId: "father", status: "pending" },
+    { id: "forged-review", sourceType: "domain_review", sourceId: "review-grandmother-follow-up", sourceVersion: 1, routingBasis: "domain_owner", recipientId: "father", status: "pending" },
+    { id: "forged-handover", sourceType: "handover", sourceId: "handover-grandmother-follow-up-to-father", sourceVersion: 3, routingBasis: "handover_confirmer", recipientId: "mother", status: "pending" },
+    { id: "valid-review", sourceType: "domain_review", sourceId: "review-grandmother-follow-up", sourceVersion: 1, routingBasis: "domain_owner", recipientId: "mother", status: "pending" },
+    { id: "valid-handover", sourceType: "handover", sourceId: "handover-grandmother-follow-up-to-father", sourceVersion: 3, routingBasis: "handover_confirmer", recipientId: "father", status: "pending" },
+  ];
+
+  assert.deepEqual(
+    projectResponsibilityState(snapshot, { actorId: "father", familyId: "family-willow" }).projection.reminders.map((item) => item.id),
+    ["valid-handover"],
+  );
+  assert.deepEqual(
+    projectResponsibilityState(snapshot, { actorId: "mother", familyId: "family-willow" }).projection.reminders.map((item) => item.id),
+    ["valid-review"],
+  );
+});
+
 test("responsibility records are rebuilt from closed fields without evidence or nested metadata", () => {
   const unsafe = structuredClone(acceptedFixture());
   for (const collection of [unsafe.domains, unsafe.handovers, unsafe.todos, unsafe.reminders, unsafe.notices]) {
@@ -172,9 +223,13 @@ test("responsibility records are rebuilt from closed fields without evidence or 
 });
 
 test("auditLog wins over legacy audit and exposes only safe acceptance metadata", () => {
-  const snapshot = state([createEvidence(evidence()).evidence], [consent()], { audit: [{ ...acceptedAudit, id: "legacy-audit" }] });
+  const snapshot = liveAcceptedState({
+    evidence: [createEvidence(evidence()).evidence],
+    consents: [consent()],
+    audit: [{ ...acceptedAudit, id: "legacy-audit" }],
+  });
   const projection = projectResponsibilityState(snapshot, "father").projection;
-  const audit = projectAudit(snapshot.auditLog, "family-a");
+  const audit = projectAudit(snapshot.auditLog, "family-a", snapshot);
   assert.deepEqual(Object.keys(audit[0]).sort(), ["action", "actorId", "entityId", "entityType", "familyId", "id", "metadata", "occurredAt"]);
   assert.deepEqual(audit[0].metadata, acceptedMetadata);
   assert.deepEqual(projection.audit, audit);
@@ -186,11 +241,52 @@ test("auditLog wins over legacy audit and exposes only safe acceptance metadata"
 });
 
 test("audit projection rejects unknown actions, mismatched entity types, unsafe IDs, statuses, and versions", () => {
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, action: secret }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, entityType: "todo" }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, actorId: `father ${secret}` }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, actorId: secret, metadata: { ...acceptedMetadata, proposedOwnerId: secret } }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, id: "audit:handover-other:5" }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, metadata: { ...acceptedMetadata, status: secret } }], "family-a"), []);
-  assert.deepEqual(projectAudit([{ ...acceptedAudit, metadata: { ...acceptedMetadata, domainVersion: -1 } }], "family-a"), []);
+  const snapshot = liveAcceptedState();
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, action: secret }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, entityType: "todo" }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, actorId: `father ${secret}` }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, actorId: secret, metadata: { ...acceptedMetadata, proposedOwnerId: secret } }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, id: "audit:handover-other:5" }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, metadata: { ...acceptedMetadata, status: secret } }], "family-a", snapshot), []);
+  assert.deepEqual(projectAudit([{ ...acceptedAudit, metadata: { ...acceptedMetadata, domainVersion: -1 } }], "family-a", snapshot), []);
+});
+
+test("audit projection requires matching live accepted handover and domain state", () => {
+  const valid = liveAcceptedState();
+  assert.equal(projectAudit([acceptedAudit], "family-a", valid).length, 1);
+  assert.deepEqual(projectAudit([acceptedAudit], "family-a"), []);
+
+  const conflictingStates = [
+    { ...valid, handovers: [{ ...valid.handovers[0], status: "draft", version: 1 }] },
+    { ...valid, handovers: [{ ...valid.handovers[0], proposedOwnerId: "grandmother" }] },
+    { ...valid, handovers: [{ ...valid.handovers[0], expectedDomainVersion: 1 }] },
+    { ...valid, domains: [{ ...valid.domains[0], accountableOwnerId: "mother" }] },
+    { ...valid, domains: [{ ...valid.domains[0], version: 4 }] },
+  ];
+  for (const snapshot of conflictingStates) {
+    assert.deepEqual(projectAudit([acceptedAudit], "family-a", snapshot), []);
+    assert.deepEqual(projectResponsibilityState(snapshot, { actorId: "father", familyId: "family-a" }).projection.audit, []);
+  }
+});
+
+test("timestamps require a real ISO calendar instant and support explicit offsets", () => {
+  const snapshot = liveAcceptedState();
+  const offsetAudit = { ...acceptedAudit, occurredAt: "2026-08-30T08:00:00+08:00" };
+  assert.equal(projectAudit([offsetAudit], "family-a", snapshot).length, 1);
+
+  for (const occurredAt of [
+    "2026-02-30T00:00:00.000Z",
+    "2026-08-30T24:00:00.000Z",
+    "August 30, 2026",
+    new Date("2026-08-30T00:00:00.000Z"),
+  ]) {
+    assert.deepEqual(projectAudit([{ ...acceptedAudit, occurredAt }], "family-a", snapshot), []);
+  }
+
+  const accepted = structuredClone(acceptedFixture());
+  accepted.notices[0].createdAt = "2030-02-30T00:00:00.000Z";
+  assert.deepEqual(
+    projectResponsibilityState(accepted, { actorId: "mother", familyId: "family-willow" }).projection.notices,
+    [],
+  );
 });
