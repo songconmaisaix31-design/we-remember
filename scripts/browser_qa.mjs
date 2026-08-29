@@ -182,6 +182,103 @@ async function assertResponsiveLayout(primarySelector) {
   return layout;
 }
 
+async function assertConversationGeometry() {
+  const layout = JSON.parse(await evaluate(`(async () => {
+    const feed = document.querySelector('#conversation-feed');
+    const conversation = document.querySelector('#agent-view .conversation');
+    const composer = document.querySelector('#composer-form');
+    const input = document.querySelector('#agent-input');
+    const mobileNav = document.querySelector('.mobile-nav');
+    const dynamicMessages = [...feed.children].filter(element => element.matches('.message'));
+    const messageGaps = dynamicMessages.slice(1).map((message, index) => {
+      const previousRect = dynamicMessages[index].getBoundingClientRect();
+      return message.getBoundingClientRect().top - previousRect.bottom;
+    });
+    const cardGaps = dynamicMessages.flatMap(message => {
+      const body = message.querySelector('.message-body');
+      const card = message.querySelector('.draft-card, .responsibility-suggestion-card');
+      return body && card ? [card.getBoundingClientRect().top - body.getBoundingClientRect().bottom] : [];
+    });
+    const desktop = window.innerWidth >= 961;
+    input.blur();
+    if (desktop) conversation.scrollTop = conversation.scrollHeight;
+    else window.scrollTo(0, document.documentElement.scrollHeight);
+    await new Promise(resolve => setTimeout(resolve, 240));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const lastRect = dynamicMessages.at(-1).getBoundingClientRect();
+    const conversationRect = conversation.getBoundingClientRect();
+    const composerRect = composer.getBoundingClientRect();
+    const navRect = mobileNav.getBoundingClientRect();
+    const composerStyle = getComputedStyle(composer);
+    const unfocusedShadow = getComputedStyle(composer).boxShadow;
+    input.focus({ preventScroll: true });
+    await new Promise(resolve => setTimeout(resolve, 240));
+    const inputStyle = getComputedStyle(input);
+    const focusedShadow = getComputedStyle(composer).boxShadow;
+    input.blur();
+    await new Promise(resolve => setTimeout(resolve, 240));
+
+    return JSON.stringify({
+      desktop,
+      dynamicMessageCount: dynamicMessages.length,
+      configuredMessageGap: parseFloat(getComputedStyle(feed).rowGap),
+      messageGaps,
+      cardGaps,
+      composerPosition: composerStyle.position,
+      composerBottomOffset: window.innerHeight - composerRect.bottom,
+      composerVisible: composerRect.top >= 0 && composerRect.bottom <= window.innerHeight,
+      conversationOverflowY: getComputedStyle(conversation).overflowY,
+      conversationScrollable: conversation.scrollHeight > conversation.clientHeight + 1,
+      conversationScrollTop: conversation.scrollTop,
+      lastMessageVisible: lastRect.top >= conversationRect.top - 1 && lastRect.bottom <= window.innerHeight,
+      lastMessageAboveComposer: lastRect.bottom <= composerRect.top - 12,
+      mobileNavVisible: navRect.width > 0 && navRect.height > 0,
+      composerAboveMobileNav: composerRect.bottom <= navRect.top - 4,
+      textareaOutlineStyle: inputStyle.outlineStyle,
+      textareaOutlineWidth: inputStyle.outlineWidth,
+      composerFocusStateVisible: focusedShadow !== unfocusedShadow
+    });
+  })()`));
+  const near = (value, expected) => Math.abs(value - expected) <= 1.5;
+  if (
+    layout.dynamicMessageCount < 4 ||
+    !near(layout.configuredMessageGap, 32) ||
+    layout.messageGaps.some(gap => !near(gap, 32)) ||
+    layout.cardGaps.length < 2 ||
+    layout.cardGaps.some(gap => !near(gap, 12)) ||
+    layout.textareaOutlineStyle !== "none" ||
+    layout.textareaOutlineWidth !== "0px" ||
+    !layout.composerFocusStateVisible
+  ) {
+    throw new Error(`Conversation spacing or focus geometry failed: ${JSON.stringify(layout)}`);
+  }
+  if (layout.desktop) {
+    if (
+      layout.composerPosition !== "static" ||
+      !near(layout.composerBottomOffset, 24) ||
+      !layout.composerVisible ||
+      layout.conversationOverflowY !== "auto" ||
+      !layout.conversationScrollable ||
+      layout.conversationScrollTop <= 0 ||
+      !layout.lastMessageVisible ||
+      !layout.lastMessageAboveComposer
+    ) {
+      throw new Error(`Desktop conversation geometry failed: ${JSON.stringify(layout)}`);
+    }
+  } else if (
+    layout.composerPosition !== "fixed" ||
+    !layout.composerVisible ||
+    !layout.mobileNavVisible ||
+    !layout.composerAboveMobileNav ||
+    !layout.lastMessageVisible ||
+    !layout.lastMessageAboveComposer
+  ) {
+    throw new Error(`Mobile conversation geometry failed: ${JSON.stringify(layout)}`);
+  }
+  return layout;
+}
+
 async function createAndConfirmRepresentativeDraft() {
   await openView("agent");
   const before = JSON.parse(await evaluate(`JSON.stringify({
@@ -427,7 +524,7 @@ if (scenario === "integrations") {
 
 await evaluate(`(() => {
   const input = document.querySelector('#agent-input');
-  input.value = '周六下午三点带妈妈复诊，提前一天提醒我和爸爸';
+  input.value = '周六晚上七点全家一起吃饭，提前两小时通知所有人';
   input.dispatchEvent(new Event('input', { bubbles: true }));
   document.querySelector('#composer-form').requestSubmit();
   return true;
@@ -449,6 +546,26 @@ if (draftReady.drafts !== 1 || draftReady.events !== 2 || !draftReady.receiptHid
 await evaluate("document.querySelector('.confirm-draft').click(); true");
 await new Promise((resolve) => setTimeout(resolve, 250));
 
+await evaluate(`(() => {
+  const input = document.querySelector('#agent-input');
+  input.value = '周六下午四点整理家庭相册，开始前提醒我';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  document.querySelector('#composer-form').requestSubmit();
+  return true;
+})()`);
+const secondDraftReady = await evaluate(`new Promise(resolve => {
+  const deadline = Date.now() + 2500;
+  const check = () => {
+    if (document.querySelectorAll('.draft-card').length === 2) resolve(true);
+    else if (Date.now() >= deadline) resolve(false);
+    else setTimeout(check, 50);
+  };
+  check();
+})`);
+if (!secondDraftReady) throw new Error("Second schedule draft did not render for geometry QA");
+await new Promise((resolve) => setTimeout(resolve, 320));
+const conversationGeometry = await assertConversationGeometry();
+
 const metrics = JSON.parse(await evaluate(`JSON.stringify({
   viewportWidth: window.innerWidth,
   scrollWidth: document.documentElement.scrollWidth,
@@ -465,8 +582,8 @@ if (metrics.scrollWidth > metrics.viewportWidth) {
 if (metrics.events !== 3 || metrics.receiptHidden || !metrics.composerVisible) {
   throw new Error(`Core journey failed: ${JSON.stringify(metrics)}`);
 }
-if ((width <= 520) !== metrics.mobileNavVisible) {
+if ((width <= 960) !== metrics.mobileNavVisible) {
   throw new Error(`Responsive navigation failed: ${JSON.stringify(metrics)}`);
 }
 
-await captureResult(metrics);
+await captureResult({ ...metrics, conversationGeometry });
