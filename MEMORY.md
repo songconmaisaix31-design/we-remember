@@ -12,6 +12,7 @@
 - As of 2026-08-30, `modules/responsibility/` contains the dependency-free P0 responsibility domain, handover lifecycle and acceptance effects, consent-safe projections, AI suggestion validation, semantic reminder routing, optimistic in-memory Store, Service facade, golden fixtures, and a runnable end-to-end demo. The existing frontend has minimal responsibility-flow wiring through a same-origin HTTP API without a visual rebuild.
 - `app/assets/brand/` contains two transparent, dependency-free, looping SVG brand animations. The accepted `mom` tail frame is a 384-square two-line lockup with black `We`, black `Re` and `ber`, and orange `mem`; its glyphs are smooth cubic Bezier paths derived through high-resolution resampling of the supplied visual reference, while the raster, watermark, and background are not embedded. Preserve the optical bounds and verify edges at 2x device scale.
 - The application uses `we-remember-logo.svg` as its persistent static rail logo. `mom-to-we-remember.svg` is only a one-shot full-screen page opening; remove its layer and scroll lock after the CSS animation, and bypass it entirely under reduced motion.
+- The desktop Agent view uses a viewport-height grid with an internally scrolling conversation and a bottom-row composer; mobile keeps the composer fixed above the bottom navigation. Dynamic turns keep 32 px separation, follow-up cards keep 12 px separation from their Agent message, and textarea focus is shown on the composer surface instead of as an overlapping inner outline.
 
 ## Durable Decisions
 
