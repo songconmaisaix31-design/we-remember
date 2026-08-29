@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#f5f0e8" />
+<title>都记得 We Remember · 应用原型</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23587267'/%3E%3Ctext x='32' y='44' font-size='38' text-anchor='middle' fill='white' font-family='serif'%3E%E8%AE%B0%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<div class="ambient a1" aria-hidden="true"></div>
+<div class="ambient a2" aria-hidden="true"></div>
+
+<!-- ════════════════ 左侧：演示控制 ════════════════ -->
+<aside class="rail" aria-label="演示控制">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">记</span>
+    <div><b>都记得</b><small>WE REMEMBER · 应用原型</small></div>
+  </div>
+  <p class="brand-sub">
+    通用 Agent 之上的家庭 Agent。刚打开就是个普通助手，
+    进了家之后才多出家里的那一层。
+  </p>
+
+  <p class="eyebrow">现在演示谁</p>
+  <div class="actorpick" id="actorpick"></div>
+
+  <p class="eyebrow">演示脚本</p>
+  <div class="steps" id="steps"></div>
+  <div class="rail-actions">
+    <button class="btn pri" id="btn-next">下一步</button>
+    <button class="btn" id="btn-reset">重置</button>
+  </div>
+
+  <div class="rail-block">
+    <p class="eyebrow">实时指标</p>
+    <div id="metrics"></div>
+  </div>
+
+  <div class="rail-block">
+    <p class="eyebrow">开关</p>
+    <button class="switchrow" id="sw-speed">
+      <span>看护超时压到 12 秒<br /><small style="color:var(--faint)">真实阈值 60 秒</small></span>
+      <i class="sw on" aria-hidden="true"></i>
+    </button>
+    <button class="switchrow" id="sw-bigfont">
+      <span>再放大一号字<br /><small style="color:var(--faint)">21px → 25px</small></span>
+      <i class="sw" aria-hidden="true"></i>
+    </button>
+  </div>
+
+  <div class="railnote">
+    <b>这个原型刻意暴露的工程细节：</b>
+    五阶段归属是任务上的一等字段，责任集中度表由它们现场统计；
+    交接在信息不全或缺一方确认时交不过去；
+    看护升级链是纯状态机，那段代码里没有任何模型调用。
+  </div>
+
+  <div class="rail-block">
+    <p class="eyebrow">操作留痕</p>
+    <div class="auditlog" id="audit"></div>
+  </div>
+</aside>
+
+<!-- ════════════════ 右侧：一部手机 ════════════════ -->
+<main class="stage">
+  <div class="stagehead">
+    <h1 id="stage-title">刚打开，它就是个普通助手</h1>
+    <p id="stage-desc">按左边的「下一步」走脚本，也可以直接在手机上点任何东西自己探索。</p>
+  </div>
+
+  <div class="onephone" id="phones">
+    <div class="phone-fit"><div class="phone"><div class="screen" id="scr"></div></div></div>
+    <div class="plabel" id="plabel"></div>
+  </div>
+</main>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

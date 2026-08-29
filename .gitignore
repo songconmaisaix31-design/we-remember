@@ -1,2 +1,6 @@
 outputs/qa/
 node_modules/
+.DS_Store
+
+# 原型截图由 dujide-app/qa/shot.mjs 现场生成，每张约 2.4MB，不入库
+dujide-app/qa/*.png
