@@ -178,36 +178,71 @@ export function createGoldenResponsibilityFixture() {
   };
 }
 
-function createPerspectiveFacts(perspectiveMemberId, privateEvidenceIds) {
+const asArray = (value) => Array.isArray(value) ? value : [];
+
+function hasCurrentFamilyConsent(evidence, consents) {
+  const matching = asArray(consents).filter((consent) => consent?.evidenceId === evidence.id
+    && consent?.subjectMemberId === evidence.subjectMemberId
+    && consent?.grantedVisibility === "family"
+    && Number.isSafeInteger(consent?.version)
+    && consent.version > 0);
+  if (matching.length === 0) return false;
+  const latestVersion = Math.max(...matching.map((consent) => consent.version));
+  const latest = matching.filter((consent) => consent.version === latestVersion);
+  return latest.length === 1 && latest[0].status === "granted";
+}
+
+/** Derives presentation-only facts from the supplied live snapshot. */
+export function createPerspectiveFacts(state, perspectiveMemberId) {
+  const domain = asArray(state?.domains).find((item) => item?.id === DOMAIN_ID);
+  const domainTodo = asArray(state?.todos).find((item) => item?.id === DOMAIN_TODO_ID);
+  const handover = asArray(state?.handovers).find((item) => item?.id === HANDOVER_ID);
+  const todoReminder = asArray(state?.reminders).find((item) => item?.sourceType === "todo"
+    && item.sourceId === DOMAIN_TODO_ID
+    && item.status === "pending");
+  const handoverReminder = asArray(state?.reminders).find((item) => item?.sourceType === "handover"
+    && item.sourceId === HANDOVER_ID);
+  const privateEvidenceIds = asArray(state?.evidence)
+    .filter((item) => item?.familyId === state?.familyId
+      && (item.subjectMemberId === perspectiveMemberId || item.createdByMemberId === perspectiveMemberId))
+    .map((item) => item.id);
+  const familyEvidenceIds = asArray(state?.evidence)
+    .filter((item) => item?.familyId === state?.familyId
+      && item.kind === "shareable_fact"
+      && hasCurrentFamilyConsent(item, state?.consents))
+    .map((item) => item.id);
+
   return {
     perspectiveMemberId,
     authorizesActions: false,
     domainId: DOMAIN_ID,
-    accountableOwnerId: MOTHER_ID,
-    domainTodoAssigneeId: MOTHER_ID,
-    reminderRecipientId: MOTHER_ID,
-    handoverStatus: "draft",
-    proposedOwnerId: FATHER_ID,
-    privateEvidenceIds: [...privateEvidenceIds],
-    familyEvidenceIds: [],
+    accountableOwnerId: domain?.accountableOwnerId ?? null,
+    domainTodoAssigneeId: domainTodo?.assigneeId ?? null,
+    reminderRecipientId: todoReminder?.recipientId ?? null,
+    handoverStatus: handover?.status ?? null,
+    proposedOwnerId: handover?.proposedOwnerId ?? null,
+    handoverReminderStatus: handoverReminder?.status ?? null,
+    privateEvidenceIds,
+    familyEvidenceIds,
+    oldOwnerNoticeIds: asArray(state?.notices)
+      .filter((notice) => notice?.familyId === state?.familyId
+        && notice.recipientId === perspectiveMemberId
+        && notice.type === "handover_accepted")
+      .map((notice) => notice.id),
   };
 }
 
 /** Returns presentation expectations only; it does not establish authorization. */
-export function createMotherPerspectiveFacts() {
-  return createPerspectiveFacts(MOTHER_ID, [
-    FACT_EVIDENCE_ID,
-    EXPRESSION_EVIDENCE_ID,
-    REQUEST_EVIDENCE_ID,
-  ]);
+export function createMotherPerspectiveFacts(state = createGoldenResponsibilityFixture()) {
+  return createPerspectiveFacts(state, MOTHER_ID);
 }
 
 /** Returns presentation expectations only; it does not establish authorization. */
-export function createFatherPerspectiveFacts() {
-  return createPerspectiveFacts(FATHER_ID, []);
+export function createFatherPerspectiveFacts(state = createGoldenResponsibilityFixture()) {
+  return createPerspectiveFacts(state, FATHER_ID);
 }
 
 /** Returns presentation expectations only; it does not establish authorization. */
-export function createGrandmotherPerspectiveFacts() {
-  return createPerspectiveFacts(GRANDMOTHER_ID, [FACT_EVIDENCE_ID]);
+export function createGrandmotherPerspectiveFacts(state = createGoldenResponsibilityFixture()) {
+  return createPerspectiveFacts(state, GRANDMOTHER_ID);
 }

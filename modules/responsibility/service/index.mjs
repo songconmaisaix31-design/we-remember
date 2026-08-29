@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 const REQUIRED_PORTS = Object.freeze([
   "analyzeResponsibility",
   "submitHandover",
@@ -37,13 +39,8 @@ const SAFE_ERROR_CODES = new Set([
   "viewer_unauthorized",
 ]);
 const SAFE_IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/;
-const EXPECTED_VERSION_FIELDS = Object.freeze([
-  "expectedVersion",
-  "expectedHandoverVersion",
-  "expectedDomainVersion",
-  "expectedTodoVersion",
-]);
 const INTERNAL_RESULT_KEYS = new Set(["nextState", "state", "snapshot", "error"]);
+const REVISE_PATCH_FIELDS = new Set(["proposedOwnerId", "expiresAt", "missingFields"]);
 
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isNonEmptyString = (value) => typeof value === "string" && value.trim().length > 0;
@@ -117,21 +114,77 @@ function safeIdentifier(value) {
   return typeof value === "string" && SAFE_IDENTIFIER.test(value) ? value : null;
 }
 
-function commandFingerprint(operation, caller, command) {
-  const expectedVersions = {};
-  for (const field of EXPECTED_VERSION_FIELDS) {
-    expectedVersions[field] = Number.isSafeInteger(command[field]) && command[field] > 0
-      ? command[field]
-      : null;
+function fieldValue(record, key) {
+  return isRecord(record) && Object.hasOwn(record, key)
+    ? Object.freeze({ present: true, value: record[key] })
+    : Object.freeze({ present: false });
+}
+
+function reviseFingerprintFields(command) {
+  const patch = isRecord(command.patch) ? command.patch : null;
+  return Object.freeze({
+    patchIsRecord: patch !== null,
+    hasUnknownFields: patch !== null
+      && Object.keys(patch).some((key) => !REVISE_PATCH_FIELDS.has(key)),
+    proposedOwnerId: fieldValue(patch, "proposedOwnerId"),
+    expiresAt: fieldValue(patch, "expiresAt"),
+    missingFields: fieldValue(patch, "missingFields"),
+  });
+}
+
+const FINGERPRINT_FIELDS = Object.freeze({
+  submit: (command) => ({
+    handoverId: fieldValue(command, "handoverId"),
+    expectedVersion: fieldValue(command, "expectedVersion"),
+  }),
+  revise: (command) => ({
+    handoverId: fieldValue(command, "handoverId"),
+    expectedVersion: fieldValue(command, "expectedVersion"),
+    ...reviseFingerprintFields(command),
+  }),
+  decline: (command) => ({
+    handoverId: fieldValue(command, "handoverId"),
+    expectedVersion: fieldValue(command, "expectedVersion"),
+  }),
+  expire: (command) => ({
+    handoverId: fieldValue(command, "handoverId"),
+    expectedVersion: fieldValue(command, "expectedVersion"),
+    now: fieldValue(command, "now"),
+  }),
+  accept: (command) => ({
+    handoverId: fieldValue(command, "handoverId"),
+    expectedHandoverVersion: fieldValue(command, "expectedHandoverVersion"),
+    expectedDomainVersion: fieldValue(command, "expectedDomainVersion"),
+    now: fieldValue(command, "now"),
+  }),
+  completeTodo: (command) => ({
+    todoId: fieldValue(command, "todoId"),
+    expectedVersion: fieldValue(command, "expectedVersion"),
+  }),
+});
+
+function stableSerialize(value) {
+  if (value === null) return "null";
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => (
+      `${JSON.stringify(key)}:${stableSerialize(value[key])}`
+    )).join(",")}}`;
   }
-  const entityId = operation === "completeTodo" ? command.todoId : command.handoverId;
-  return JSON.stringify({
+  if (["string", "number", "boolean"].includes(typeof value)) return JSON.stringify(value);
+  return JSON.stringify({ unsupportedType: typeof value });
+}
+
+function commandFingerprint(operation, caller, command) {
+  const selectFields = FINGERPRINT_FIELDS[operation];
+  const closedPayload = {
     operation,
     actorId: safeIdentifier(caller.actorId),
     familyId: safeIdentifier(caller.familyId),
-    entityId: safeIdentifier(entityId),
-    expectedVersions,
-  });
+    fields: typeof selectFields === "function" ? selectFields(command) : {},
+  };
+  const digest = createHash("sha256").update(stableSerialize(closedPayload)).digest("hex");
+  return `sha256:${digest}`;
 }
 
 function assertDependencies(store, ports) {
@@ -218,6 +271,11 @@ export function createResponsibilityService({ store, ports } = {}) {
       return failure("invalid_request");
     }
     if (!isNonEmptyString(scopedCommand.idempotencyKey)) return failure("invalid_request");
+    if (operation === "revise"
+      && isRecord(scopedCommand.patch)
+      && Object.keys(scopedCommand.patch).some((key) => !REVISE_PATCH_FIELDS.has(key))) {
+      return failure("invalid_request");
+    }
 
     let expectedRevision;
     try {
