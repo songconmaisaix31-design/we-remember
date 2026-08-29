@@ -100,7 +100,7 @@
         </div>
 
         <nav class="nav-list">
-          <button class="nav-item is-active" type="button" data-view="agent">
+          <button class="nav-item is-active" type="button" data-view="agent" aria-current="page">
             <span aria-hidden="true">✦</span><span>和 Agent 说</span>
           </button>
           <button class="nav-item" type="button" data-view="schedule">
@@ -122,10 +122,11 @@
       </aside>
 
       <main class="workspace">
+        <section class="app-view" id="agent-view" aria-labelledby="agent-view-title">
         <header class="workspace-header">
           <div>
             <p class="eyebrow">FAMILY · SATURDAY</p>
-            <h1>今天想安排什么？</h1>
+            <h1 id="agent-view-title">今天想安排什么？</h1>
             <p>直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
           </div>
           <div class="family-badge surface"><span class="custom-avatar coral" id="space-avatar" aria-hidden="true">我</span><span>我们的家</span></div>
@@ -180,6 +181,71 @@
             </button>
           </div>
         </form>
+        </section>
+
+        <section class="app-view detail-view" id="schedule-view" aria-labelledby="schedule-view-title" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">FAMILY SCHEDULE</p>
+              <h1 id="schedule-view-title">家庭时间表</h1>
+              <p>查看全家安排，按日期和成员筛选。新安排仍由 Agent 起草并经你确认。</p>
+            </div>
+            <button class="primary-page-action" type="button" data-create-with-agent>和 Agent 安排 <span aria-hidden="true">→</span></button>
+          </header>
+
+          <section class="summary-grid" aria-label="时间表摘要">
+            <article class="summary-card surface"><span>已确认安排</span><strong id="schedule-total-count">3</strong><small>本地演示集合</small></article>
+            <article class="summary-card surface"><span>今天</span><strong id="schedule-today-count">2</strong><small>所有家庭成员</small></article>
+            <article class="summary-card surface"><span>待通知</span><strong id="schedule-notification-count">0</strong><small>不代表真实投递</small></article>
+          </section>
+
+          <section class="schedule-panel surface">
+            <div class="filter-bar">
+              <label for="schedule-day-filter"><span>查看日期</span><select id="schedule-day-filter"><option value="all">本周全部</option><option value="today">今天 · 8 月 29 日</option><option value="tomorrow">明天 · 8 月 30 日</option><option value="saturday">周六 · 8 月 29 日</option></select></label>
+              <div class="member-filter" aria-label="按家庭成员筛选">
+                <span>家庭成员</span>
+                <div>
+                  <button type="button" data-member-filter="all" aria-pressed="true">全部</button>
+                  <button type="button" data-member-filter="我" aria-pressed="false">我</button>
+                  <button type="button" data-member-filter="妈妈" aria-pressed="false">妈妈</button>
+                  <button type="button" data-member-filter="爸爸" aria-pressed="false">爸爸</button>
+                  <button type="button" data-member-filter="女儿" aria-pressed="false">女儿</button>
+                  <button type="button" data-member-filter="儿子" aria-pressed="false">儿子</button>
+                  <button type="button" data-member-filter="奶奶" aria-pressed="false">奶奶</button>
+                </div>
+              </div>
+            </div>
+            <div class="schedule-event-list" id="schedule-event-list" aria-live="polite"></div>
+          </section>
+        </section>
+
+        <section class="app-view detail-view" id="people-view" aria-labelledby="people-view-title" hidden>
+          <header class="page-header">
+            <div>
+              <p class="eyebrow">FAMILY &amp; NOTIFICATIONS</p>
+              <h1 id="people-view-title">家人和通知</h1>
+              <p>集中查看成员、演示通知路径和回执证据。这里不会发送真实消息。</p>
+            </div>
+            <button class="primary-page-action" type="button" data-create-with-agent>创建需通知的安排 <span aria-hidden="true">→</span></button>
+          </header>
+
+          <aside class="demo-truth surface" aria-label="本地演示说明">
+            <span aria-hidden="true">i</span>
+            <div><strong>仅为当前页面的本地演示</strong><p>路径和状态用于验证产品交互，不代表已获授权、平台已接收、家人已阅读或事情已完成。</p></div>
+          </aside>
+
+          <div class="people-layout">
+            <section class="people-panel surface" aria-labelledby="member-list-title">
+              <header><div><p class="eyebrow">MEMBERS</p><h2 id="member-list-title">家庭成员</h2></div><span>6 人</span></header>
+              <div id="people-member-list" class="people-member-list"></div>
+            </section>
+            <section class="receipts-panel surface" aria-labelledby="receipt-list-title">
+              <header><div><p class="eyebrow">RECEIPTS</p><h2 id="receipt-list-title">通知回执历史</h2></div><span id="receipt-total-count">2 条</span></header>
+              <div class="receipt-legend" aria-label="状态说明"><span><i class="queued"></i>本地排队</span><span><i class="accepted"></i>演示接受</span><span><i class="failed"></i>演示失败</span></div>
+              <div id="notification-receipt-list" class="notification-receipt-list" aria-live="polite"></div>
+            </section>
+          </div>
+        </section>
       </main>
 
       <aside class="agenda-rail" aria-label="今日时间表">
@@ -225,7 +291,7 @@
       </aside>
 
       <nav class="mobile-nav surface" aria-label="移动端导航">
-        <button class="is-active" type="button" data-view="agent"><span>✦</span><small>Agent</small></button>
+        <button class="is-active" type="button" data-view="agent" aria-current="page"><span>✦</span><small>Agent</small></button>
         <button type="button" data-view="schedule"><span>▦</span><small>时间表</small></button>
         <button type="button" data-view="people"><span>◎</span><small>家人</small></button>
         <button type="button" data-view="integrations"><span>⌁</span><small>连接</small></button>
