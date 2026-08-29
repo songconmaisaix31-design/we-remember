@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f0e8" />
+    <title>We Remember — Agent 时间表</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23201d1a'/%3E%3Cpath d='M14 18h8l5 25 5-18h6l5 18 5-25h8L48 48h-9l-4-14-4 14h-9z' fill='white'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <div class="app-shell" data-app-state="idle">
+      <aside class="identity-rail surface" aria-label="主导航">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">W</span>
+          <span>We Remember</span>
+        </div>
+
+        <div class="profile">
+          <div class="avatar-wrap">
+            <img src="assets/mother.svg" alt="妈妈的角色头像" />
+            <span class="presence" aria-label="Agent 在线">✦</span>
+          </div>
+          <div>
+            <strong>妈妈</strong>
+            <span>家庭空间 · 6 人</span>
+          </div>
+        </div>
+
+        <nav class="nav-list">
+          <button class="nav-item is-active" type="button" data-view="agent">
+            <span aria-hidden="true">✦</span><span>和 Agent 说</span>
+          </button>
+          <button class="nav-item" type="button" data-view="schedule">
+            <span aria-hidden="true">▦</span><span>家庭时间表</span>
+          </button>
+          <button class="nav-item" type="button" data-view="people">
+            <span aria-hidden="true">◎</span><span>家人和通知</span>
+          </button>
+        </nav>
+
+        <div class="rail-note">
+          <span class="status-dot"></span>
+          <p><strong>交互原型</strong><br />日程和通知仅保存在本页</p>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-header">
+          <div>
+            <p class="eyebrow">SATURDAY · AUG 29</p>
+            <h1>今天想安排什么？</h1>
+            <p>直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
+          </div>
+          <button class="family-switch surface" type="button" aria-label="切换家庭空间">
+            <span class="face-stack" aria-hidden="true"><i>妈</i><i>爸</i><i>女</i></span>
+            <span>家庭空间</span>
+            <span aria-hidden="true">⌄</span>
+          </button>
+        </header>
+
+        <section class="date-strip" aria-label="本周日期">
+          <button type="button"><span>四</span><strong>27</strong></button>
+          <button type="button"><span>五</span><strong>28</strong></button>
+          <button class="is-today" type="button"><span>今天</span><strong>29</strong></button>
+          <button type="button"><span>日</span><strong>30</strong></button>
+          <button type="button"><span>一</span><strong>31</strong></button>
+          <button type="button"><span>二</span><strong>01</strong></button>
+          <button type="button"><span>三</span><strong>02</strong></button>
+        </section>
+
+        <section class="conversation" aria-label="与时间 Agent 的对话" aria-live="polite">
+          <div class="message agent-message intro-message">
+            <span class="agent-orb" aria-hidden="true">✦</span>
+            <div class="message-body">
+              <strong>时间 Agent</strong>
+              <p>你可以打字，也可以直接说。例如：“周六下午三点带妈妈复诊，提前一天提醒我和爸爸。”</p>
+              <div class="suggestions" aria-label="示例指令">
+                <button type="button" data-prompt="周六下午三点带妈妈复诊，提前一天提醒我和爸爸">安排复诊</button>
+                <button type="button" data-prompt="明晚七点全家一起吃饭，提前两小时通知所有人">安排家庭晚餐</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="conversation-feed"></div>
+        </section>
+
+        <form class="composer surface" id="composer-form">
+          <div class="voice-state" id="voice-state" hidden>
+            <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+            <span id="voice-state-label">正在听…</span>
+            <button type="button" id="stop-voice">完成</button>
+          </div>
+          <label class="sr-only" for="agent-input">告诉 Agent 要安排的事情</label>
+          <textarea id="agent-input" rows="1" maxlength="600" placeholder="告诉 Agent：什么时候、做什么、通知谁…"></textarea>
+          <div class="composer-actions">
+            <div class="input-modes">
+              <button class="icon-button" id="dictate-button" type="button" aria-label="实时语音输入" title="实时语音输入">
+                <span aria-hidden="true">♩</span>
+              </button>
+              <button class="voice-message-button" id="voice-message-button" type="button">
+                <span aria-hidden="true">◉</span><span>发语音</span>
+              </button>
+            </div>
+            <span class="composer-hint">Enter 发送 · Shift + Enter 换行</span>
+            <button class="send-button" type="submit" aria-label="发送给 Agent">
+              <span>发送</span><span aria-hidden="true">↑</span>
+            </button>
+          </div>
+        </form>
+      </main>
+
+      <aside class="agenda-rail" aria-label="今日时间表">
+        <section class="agenda-card surface lift-card">
+          <header>
+            <div>
+              <p class="eyebrow">TODAY</p>
+              <h2>今天的时间表</h2>
+            </div>
+            <span class="count" id="event-count">2</span>
+          </header>
+          <div class="timeline" id="timeline">
+            <article class="timeline-event">
+              <time>09:30</time>
+              <div><strong>妈妈 · 社区体检</strong><span>爸爸陪同 · 已提醒</span></div>
+            </article>
+            <article class="timeline-event muted-event">
+              <time>18:40</time>
+              <div><strong>取快递</strong><span>仅提醒我</span></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="people-card surface lift-card">
+          <header>
+            <div>
+              <p class="eyebrow">NOTIFY</p>
+              <h2>通知对象</h2>
+            </div>
+          </header>
+          <ul class="people-list">
+            <li><span class="person-avatar coral">我</span><span><strong>我</strong><small>应用内</small></span><i class="online"></i></li>
+            <li><span class="person-avatar blue">爸</span><span><strong>爸爸</strong><small>飞书</small></span><i class="online"></i></li>
+            <li><span class="person-avatar gold">女</span><span><strong>女儿</strong><small>应用内</small></span><i></i></li>
+          </ul>
+          <p class="privacy-note">Agent 只会通知确认卡中列出的人。</p>
+        </section>
+
+        <section class="receipt-card surface" id="receipt-card" hidden>
+          <div class="success-mark" aria-hidden="true">✓</div>
+          <div><strong>已同步到时间表</strong><p id="receipt-copy"></p></div>
+        </section>
+      </aside>
+
+      <nav class="mobile-nav surface" aria-label="移动端导航">
+        <button class="is-active" type="button"><span>✦</span><small>Agent</small></button>
+        <button type="button"><span>▦</span><small>时间表</small></button>
+        <button type="button"><span>◎</span><small>家人</small></button>
+      </nav>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+    <script src="app.js"></script>
+  </body>
+</html>
