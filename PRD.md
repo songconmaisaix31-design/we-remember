@@ -141,3 +141,7 @@ P0 adds a responsibility map as the primary responsibility view while preserving
 ### P0 exclusions
 
 Image, screenshot, PDF, email, external-calendar, SMS, recurring-todo, connector, production authentication, database, and real provider delivery work remain outside P0. The physical-robot and channel-gateway modules stay unchanged. P1 cannot start until this P0 path passes its deterministic and browser checks.
+
+### Timeboxed implementation scope
+
+For the current hackathon implementation window, the existing frontend is frozen. This delivery implements and proves the responsibility, handover, consent, AI-validation, reminder-migration, and audit behavior as a dependency-free domain module with executable tests. Responsibility-map and card integration remain product requirements but are deferred from this code batch; no existing application HTML, CSS, or browser interaction is changed.

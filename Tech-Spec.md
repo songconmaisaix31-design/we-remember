@@ -136,11 +136,14 @@ Also verify direct Agent entry, the absence of onboarding controls, all 12 retai
 
 ## Responsibility ownership P0 architecture
 
-P0 preserves the dependency-free application and adds two isolated modules before integration:
+P0 preserves the dependency-free application and adds an isolated domain module:
 
-- `modules/responsibility/`: pure deterministic contracts, state transitions, reminder routing, privacy projections, fixture state, and tests.
-- `app/responsibility-ui/`: presentation-only responsibility map and suggestion/handover cards. Components receive safe view models and callbacks; they do not decide permission, consent, ownership, or reminder routing.
-- `app/app.js`: remains the single demo state owner after the integration track wires the public module interfaces into the existing shell.
+- `modules/responsibility/model/`: strict records, validation, transition vocabulary, and safe identifiers.
+- `modules/responsibility/handover/`: deterministic handover commands, reminder routing, immutable acceptance, and audit effects.
+- `modules/responsibility/privacy/`: consent-aware projections and the retry-once structured AI boundary.
+- `modules/responsibility/index.mjs` and integration tests: composed only after the three independent tracks pass.
+
+The hackathon implementation batch freezes `app/**`: it does not wire new UI or alter existing browser behavior. The product UI requirements remain deferred acceptance, not simulated completion.
 
 The responsibility module exposes immutable commands. A successful handover acceptance constructs one next-state snapshot containing the updated domain, inherited open todos, pending reminders, handover, notice, and audit record, then replaces the fixture state once. This gives the static demo deterministic all-or-nothing semantics. A production implementation must execute the same invariant inside one durable database transaction with optimistic version checks and idempotency.
 
@@ -168,4 +171,4 @@ The demo perspectives are presentation projections for mother, father, and grand
 
 ### Integration ownership
 
-Core and UI tracks own only their new directories. Only the integration track may change `app/index.html`, `app/app.js`, `app/styles.css`, primary navigation, cross-track imports, structural/browser tests, and delivery documentation. Existing card, dialog, avatar, focus, surface, responsive, and reduced-motion primitives must be reused without introducing a framework, dependency, router, or parallel design system.
+Model, handover, and privacy tracks own only their new directories. Only the integration track may create the module-level entry point, combined fixture, golden E2E, package metadata, and responsibility-module documentation. `app/**`, primary navigation, existing browser tests, `modules/robot/**`, and channel work remain frozen.

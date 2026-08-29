@@ -2,7 +2,7 @@
 
 ## Goal
 
-Extend the existing We Remember conversational schedule prototype into a responsibility ownership and handover demo without replacing its framework, shell, design system, or existing schedule flow.
+Implement the responsibility ownership and handover engine beside the existing We Remember conversational schedule prototype. The current hackathon batch freezes the frontend and proves behavior through public module APIs and executable tests.
 
 ## Frozen product behavior
 
@@ -25,32 +25,39 @@ The golden browser flow is:
 - Do not add packages, a router, storage, backend, provider call, or new design system.
 - Do not modify `modules/robot/**`, channel contracts, gateway documents, or avatar assets.
 - P1 image/PDF extraction, recurring todos, conflict detection, candidate review, email, calendars, SMS, and connectors stay blocked until P0 passes.
-- Demo perspective switching is labeled as presentation state, not authentication or permission proof.
+- Frontend files are frozen for this batch. Perspective behavior is represented by privacy-safe projection APIs and fixtures, not new UI.
 - Static acceptance demonstrates logical atomicity; production needs a durable transaction.
 
 ## Worktree tracks
 
-### Core track
+### Model track
 
-Write paths: `modules/responsibility/**` only.
+Write paths: `modules/responsibility/model/**` only.
 
-Deliver strict, dependency-free ESM contracts and deterministic functions for member validation, responsibility domains, todos, handovers, evidence/consent projections, reminder routing, schema validation with one retry, immutable acceptance, fixture state, and Node tests. Export public functions through one module entry point. Do not edit the application shell.
+Deliver strict, dependency-free ESM records, closed-world validators, member and owner invariants, transition vocabulary, safe identifiers, and colocated Node tests. Export through `modules/responsibility/model/index.mjs`. Do not edit another track or the application shell.
 
-### UI track
+### Handover track
 
-Write paths: `app/responsibility-ui/**` only.
+Write paths: `modules/responsibility/handover/**` only.
 
-Deliver presentation-only ESM renderers and scoped CSS for the responsibility map, responsibility suggestion card, handover card, domain ownership fields, responsibility-and-awareness panel, safe audit timeline, and demo perspective control. Accept safe view models and callbacks through documented props. Use DOM text APIs for untrusted content and do not implement domain transitions.
+Deliver deterministic submit, revise, decide, expire, and todo-completion commands; reminder derivation; immutable accepted-state effects; optimistic version checks; idempotency behavior; safe audit metadata; and colocated Node tests. Depend only on the frozen contract shapes, not another worktree's uncommitted code.
+
+### Privacy and AI-boundary track
+
+Write paths: `modules/responsibility/privacy/**` only.
+
+Deliver evidence/consent policy, private and family projections, forbidden-field protection, closed-world responsibility-suggestion validation, retry-once provider orchestration, manual fallback, and colocated Node tests. Raw private expression must never enter a family projection or audit metadata.
 
 ### Integration track
 
-Starts after Core and UI acceptance. It alone owns `app/index.html`, `app/app.js`, `app/styles.css`, primary navigation, cross-track imports, `scripts/**`, delivery documentation, and browser artifacts. It merges the exact accepted Core and UI commits, wires the golden flow, and expands deterministic and browser acceptance without changing track-owned internals except for narrow merge-conflict resolution.
+Starts after all three tracks pass. It owns only `modules/responsibility/index.mjs`, `modules/responsibility/fixture.mjs`, `modules/responsibility/package.json`, `modules/responsibility/test/**`, and responsibility-module documentation. It merges the exact accepted commits, composes the public API, and proves the golden flow without changing track-owned internals except for narrow merge-conflict resolution. It must not modify `app/**`.
 
 ## Public integration contract
 
-- Core exports frozen domain constants, fixture creation, safe projection, suggestion analysis, handover submit/revise/decide/expire commands, todo completion, and reminder derivation.
-- UI exports render functions that take `{ root, viewModel, actions }`; actions are callbacks only and view models contain no private content unavailable to the active perspective.
-- Integration owns the one in-memory state snapshot and replaces it only with successful Core command results.
+- Model exports frozen constants, record validators, and owner/member invariants.
+- Handover exports submit/revise/decide/expire, todo completion, reminder derivation, and immutable accepted-state effects.
+- Privacy exports safe projection and responsibility-suggestion analysis with retry-once validation.
+- Integration exports the composed public API and owns the one fixture state snapshot, replacing it only with successful command results.
 - Event cards derive the accountable owner from `domainId`; they do not store a second owner field.
 - `informedMemberIds` produces awareness display or a one-time informational receipt, not recurring responsibility reminders.
 
@@ -59,27 +66,26 @@ Starts after Core and UI acceptance. It alone owns `app/index.html`, `app/app.js
 Track checks:
 
 ```powershell
-node --test modules/responsibility/test/*.test.mjs
-node --check app/responsibility-ui/index.mjs
+node --test modules/responsibility/model
+node --test modules/responsibility/handover
+node --test modules/responsibility/privacy
 ```
 
 Integration and final checks:
 
 ```powershell
 python -B scripts/verify_app.py
-node --test modules/responsibility/test/*.test.mjs
+node --test modules/responsibility
 node --check app/app.js
 node --check scripts/browser_qa.mjs
-python -m http.server 4173
-node scripts/browser_qa.mjs
 git diff --check
 ```
 
-Browser QA covers 1440 x 1000, 820 x 1180, and 390 x 844, the complete golden flow, visible perspective and status semantics, keyboard operation, no horizontal overflow, no clipped primary action, and reduced motion.
+The responsibility golden flow is exercised through the composed API and asserts every intermediate state, unchanged-owner branch, accepted atomic effects, reminder routing, privacy projection, idempotency, conflict, timeout, and audit behavior. Existing browser behavior is guarded by its unchanged structural and syntax checks; this batch makes no frontend-completion claim.
 
 ## Main risks
 
 - A static demo can prove deterministic behavior but not durable transactionality, real authorization, or delivery. UI copy and handoff documentation must preserve this evidence boundary.
 - Private text can leak through derived cards, audit metadata, or fixture serialization. Projection tests must assert both allowed fields and forbidden substrings for every perspective.
 - Reminder migration can incorrectly reassign explicitly delegated work. Tests must distinguish `domain_owner` from `explicit` assignment and exclude completed todos.
-- Parallel tracks can drift at their interface. Frozen exports and view-model props above are the only cross-track contract; cross-track adaptation belongs to Integration.
+- Parallel tracks can drift at their interface. Frozen record shapes and named exports above are the only cross-track contract; cross-track adaptation belongs to Integration.
