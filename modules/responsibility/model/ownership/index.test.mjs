@@ -49,6 +49,42 @@ test("rejects cross-family and missing members with safe codes", () => {
   });
 });
 
+test("rejects duplicate member ids regardless of order without mutating inputs", () => {
+  const duplicateCollections = [
+    [
+      { id: "duplicate", familyId, kind: "human" },
+      { id: "duplicate", familyId, kind: "agent" },
+    ],
+    [
+      { id: "duplicate", familyId, kind: "agent" },
+      { id: "duplicate", familyId, kind: "human" },
+    ],
+    [
+      { id: "duplicate", familyId, kind: "human" },
+      { id: "duplicate", familyId: "family-2", kind: "agent" },
+    ],
+    [
+      { id: "duplicate", familyId: "family-2", kind: "agent" },
+      { id: "duplicate", familyId, kind: "human" },
+    ],
+  ];
+
+  for (const collection of duplicateCollections) {
+    const snapshot = collection.map((member) => ({ ...member }));
+    const frozenCollection = Object.freeze(collection.map((member) => Object.freeze(member)));
+
+    assert.deepEqual(resolveMemberInFamily(frozenCollection, familyId, "duplicate"), {
+      ok: false,
+      code: OWNERSHIP_ERROR_CODES.MEMBER_MISSING,
+    });
+    assert.deepEqual(
+      assertHumanAccountableOwner({ familyId, accountableOwnerId: "duplicate" }, frozenCollection),
+      { ok: false, code: OWNERSHIP_ERROR_CODES.OWNER_MISSING },
+    );
+    assert.deepEqual(frozenCollection, snapshot);
+  }
+});
+
 test("accepts a human accountable owner without mutating frozen inputs", () => {
   const result = assertHumanAccountableOwner(domain, members);
   assert.equal(result.ok, true);

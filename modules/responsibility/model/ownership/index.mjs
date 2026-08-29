@@ -64,7 +64,7 @@ function memberCollection(members) {
 }
 
 /**
- * Resolves a member only when the supplied member belongs to the supplied family.
+ * Resolves a member only when its id is globally unique and it belongs to the supplied family.
  * Failure results deliberately omit member and family values.
  */
 export function resolveMemberInFamily(members, familyId, memberId) {
@@ -73,8 +73,10 @@ export function resolveMemberInFamily(members, familyId, memberId) {
   if (!isNonEmptyString(memberId)) return failure(OWNERSHIP_ERROR_CODES.INVALID_MEMBER);
   if (collection === null) return failure(OWNERSHIP_ERROR_CODES.MEMBER_MISSING);
 
-  const member = collection.find((candidate) => isPlainRecord(candidate) && candidate.id === memberId);
-  if (!member) return failure(OWNERSHIP_ERROR_CODES.MEMBER_MISSING);
+  const matches = collection.filter((candidate) => isPlainRecord(candidate) && candidate.id === memberId);
+  if (matches.length !== 1) return failure(OWNERSHIP_ERROR_CODES.MEMBER_MISSING);
+
+  const [member] = matches;
   if (member.familyId !== familyId) return failure(OWNERSHIP_ERROR_CODES.MEMBER_OUTSIDE_FAMILY);
 
   return success(OWNERSHIP_RESULT_CODES.MEMBER_RESOLVED, { member });
