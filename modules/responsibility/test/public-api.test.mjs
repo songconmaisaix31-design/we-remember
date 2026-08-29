@@ -39,6 +39,7 @@ test("publishes one dependency-free responsibility API without ambiguous exports
     ".",
     "./fixture",
     "./handover",
+    "./http",
     "./model",
     "./privacy",
     "./service",
