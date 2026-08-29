@@ -104,6 +104,18 @@ test('versioned sources and reminder inputs reject nonpositive versions and Todo
   assert.equal(completeTodo(todo, [{ ...pendingTodoPlan, unexpected: true }], todo.version).error.code, 'INVALID_REMINDER_PLANS');
 });
 
+test('reminder sources reject impossible calendar values', () => {
+  const invalid = '2030-02-30T09:00:00Z';
+  assert.equal(deriveReminderPlans({ events: [{ ...familyEvent, startsAt: invalid }] }).error.code, 'INVALID_EVENT');
+  assert.equal(deriveReminderPlans({ todos: [{ ...todo, dueAt: invalid }] }).error.code, 'INVALID_TODO');
+  assert.equal(deriveReminderPlans({
+    domainReviews: [{ id: 'review-1', familyId: 'family-1', domainId: 'care', scheduledAt: invalid, version: 1 }],
+    domains: [{ id: 'care', familyId: 'family-1', accountableOwnerId: 'father', version: 1 }],
+  }).error.code, 'INVALID_DOMAIN_REVIEW');
+  assert.equal(deriveReminderPlans({ handovers: [handover({ expiresAt: invalid })] }).error.code, 'INVALID_HANDOVER');
+  assert.equal(deriveReminderPlans({ events: [{ ...familyEvent, startsAt: new Date('2026-09-02T09:00:00Z') }] }).error.code, 'INVALID_EVENT');
+});
+
 test('completeTodo increments Todo.version and stops matching pending plans immutably', () => {
   const plans = [
     { ...pendingTodoPlan, id: 'opaque-current-plan' },
@@ -145,4 +157,23 @@ test('migration reroutes only open future or unscheduled matching domain-owner t
   assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, dueAt: null }, plans, 'father', 4, 'care', '2026-08-30T00:00:00.000Z').ok, true);
   assert.equal(rerouteMigratedOpenDomainOwnerTodo(todo, plans, 'father', -1, 'care', '2026-08-30T00:00:00.000Z').error.code, 'STALE_SOURCE_VERSION');
   assert.equal(rerouteMigratedOpenDomainOwnerTodo({ ...todo, version: 0 }, plans, 'father', 0, 'care', '2026-08-30T00:00:00.000Z').error.code, 'INVALID_TODO');
+});
+
+test('migration rejects invalid now or dueAt and accepts equivalent offset instants', () => {
+  const plans = [{ ...pendingTodoPlan }];
+  for (const invalidNow of ['2030-02-30T00:00:00Z', '2026-08-30T24:00:00Z', new Date('2026-08-30T00:00:00Z')]) {
+    const before = structuredClone({ todo, plans });
+    const result = rerouteMigratedOpenDomainOwnerTodo(todo, plans, 'father', 4, 'care', invalidNow);
+    assert.equal(result.error.code, 'INVALID_TODO');
+    assert.deepEqual({ todo, plans }, before);
+  }
+  const invalidDue = { ...todo, dueAt: '2030-02-30T09:00:00Z' };
+  assert.equal(
+    rerouteMigratedOpenDomainOwnerTodo(invalidDue, plans, 'father', 4, 'care', '2026-08-30T00:00:00Z').error.code,
+    'INVALID_TODO',
+  );
+  assert.equal(
+    rerouteMigratedOpenDomainOwnerTodo(todo, plans, 'father', 4, 'care', '2026-08-30T08:00:00+08:00').ok,
+    true,
+  );
 });

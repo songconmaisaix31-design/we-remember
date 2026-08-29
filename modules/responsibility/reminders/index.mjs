@@ -1,3 +1,5 @@
+import { isIsoCalendarInstant, parseIsoCalendarInstant } from '../model/time.mjs';
+
 const PENDING = 'pending';
 const CANCELLED = 'cancelled';
 const COMPLETED = 'completed';
@@ -26,7 +28,7 @@ const error = (code) => ({ ok: false, error: { code, message: 'Reminder operatio
 const success = (value) => ({ ok: true, value });
 const isNonEmptyString = (value) => typeof value === 'string' && value.length > 0;
 const isPositiveVersion = (value) => Number.isSafeInteger(value) && value > 0;
-const isOptionalTimestamp = (value) => value === null || isNonEmptyString(value);
+const isOptionalTimestamp = (value) => value === null || isIsoCalendarInstant(value);
 const hasFields = (value, fields) => value !== null && typeof value === 'object' && fields.every((field) => isNonEmptyString(value[field]));
 const hasExactKeys = (value, keys) => {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -50,7 +52,8 @@ const isValidTodo = (todo) => hasFields(todo, ['id', 'familyId', 'assigneeId'])
   && isNonEmptyString(todo.status) && isNonEmptyString(todo.assignmentBasis) && isPositiveVersion(todo.version)
   && (todo.domainId === null || isNonEmptyString(todo.domainId)) && isOptionalTimestamp(todo.dueAt)
   && !Object.hasOwn(todo, 'sourceVersion') && !Object.hasOwn(todo, 'assignmentType');
-const isFutureOrUnscheduled = (dueAt, now) => dueAt === null || Date.parse(dueAt) > Date.parse(now);
+const isFutureOrUnscheduled = (dueAt, now) => dueAt === null
+  || parseIsoCalendarInstant(dueAt) > parseIsoCalendarInstant(now);
 const isValidPlan = (plan) => hasExactKeys(plan, REMINDER_PLAN_KEYS)
   && isNonEmptyString(plan.id)
   && Object.hasOwn(ROUTING_BASIS_BY_SOURCE_TYPE, plan.sourceType)
@@ -75,7 +78,7 @@ export function deriveReminderPlans(sources) {
 
   for (const event of events) {
     if (!hasFields(event, ['id', 'familyId']) || !Array.isArray(event.participantIds)
-      || !event.participantIds.every(isNonEmptyString) || !isNonEmptyString(event.startsAt)
+      || !event.participantIds.every(isNonEmptyString) || !isIsoCalendarInstant(event.startsAt)
       || Object.hasOwn(event, 'version') || Object.hasOwn(event, 'sourceVersion')) return error('INVALID_EVENT');
     for (const recipientId of event.participantIds) plans.push(createPlan({
       sourceType: 'event', sourceId: event.id, sourceVersion: FAMILY_EVENT_SOURCE_VERSION, recipientId,
@@ -124,7 +127,7 @@ export function completeTodo(todo, reminderPlans, expectedVersion) {
 /** Reroutes one accepted domain migration; explicit, past, and other-domain Todos do not migrate. */
 export function rerouteMigratedOpenDomainOwnerTodo(todo, reminderPlans, newOwnerId, expectedVersion, migratedDomainId, now) {
   if (!isValidTodo(todo) || !isNonEmptyString(newOwnerId)
-    || !isNonEmptyString(migratedDomainId) || !isNonEmptyString(now)) return error('INVALID_TODO');
+    || !isNonEmptyString(migratedDomainId) || !isIsoCalendarInstant(now)) return error('INVALID_TODO');
   if (!validPlanList(reminderPlans)) return error('INVALID_REMINDER_PLANS');
   if (expectedVersion !== todo.version) return error('STALE_SOURCE_VERSION');
   if (todo.status !== OPEN || todo.assignmentBasis !== 'domain_owner' || todo.domainId !== migratedDomainId || !isFutureOrUnscheduled(todo.dueAt, now)) return error('TODO_NOT_MIGRATABLE');

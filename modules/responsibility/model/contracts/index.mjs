@@ -2,6 +2,8 @@
  * Closed-world P0 responsibility records.  These validators are deliberately
  * dependency-free so every external value is checked before domain code sees it.
  */
+import { isIsoCalendarInstant } from '../time.mjs';
+
 export const MEMBER_KINDS = Object.freeze(['human', 'agent']);
 export const DOMAIN_STATUSES = Object.freeze(['active', 'paused', 'completed']);
 export const VISIBILITIES = Object.freeze(['private', 'family']);
@@ -25,7 +27,6 @@ export const AUDIT_ENTITY_TYPES = Object.freeze([
 const MAX_ID_LENGTH = 128;
 const MAX_TEXT_LENGTH = 4096;
 const MAX_ARRAY_LENGTH = 256;
-const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/;
 const SAFE_ERROR = Object.freeze({ code: 'INVALID_RECORD', message: 'Record validation failed.' });
 
 const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
@@ -34,7 +35,7 @@ const isEnum = (values, value) => values.includes(value);
 const isId = (value) => typeof value === 'string' && value.length > 0 && value.length <= MAX_ID_LENGTH;
 const isText = (value) => typeof value === 'string' && value.length > 0 && value.length <= MAX_TEXT_LENGTH;
 const isVersion = (value) => Number.isSafeInteger(value) && value > 0;
-const isTimestamp = (value) => typeof value === 'string' && ISO_TIMESTAMP.test(value) && Number.isFinite(Date.parse(value));
+const isTimestamp = isIsoCalendarInstant;
 const isNullableId = (value) => value === null || isId(value);
 const isNullableTimestamp = (value) => value === null || isTimestamp(value);
 const isIdArray = (value) => Array.isArray(value)

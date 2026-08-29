@@ -26,6 +26,24 @@ test("submit accepts null expiresAt as no automatic expiry", () => {
   assert.deepEqual(result.handover.missingFields, []); assert.equal(result.handover.expiresAt, null); assert.equal(result.handover.version, 2); assertOwnerUnchanged(result);
 });
 
+test("submit and revise never persist an invalid expiresAt", () => {
+  for (const expiresAt of ["2030-02-30T00:00:00Z", "2026-09-01T24:00:00Z", new Date("2026-09-01T00:00:00Z")]) {
+    const draft = { ...base, expiresAt };
+    const beforeDraft = clone(draft);
+    const submitted = submitHandover({ domain, handover: draft, actorId: "mother", expectedVersion: 1 });
+    assert.equal(submitted.ok, false); assert.equal(submitted.code, HandoverCode.INVALID_INPUT);
+    assert.equal(submitted.handover.version, 1); assert.deepEqual(draft, beforeDraft); assertOwnerUnchanged(submitted);
+
+    const pending = { ...base, status: "pending_ack", confirmationRequiredFromId: "father", version: 3 };
+    const patch = { expiresAt };
+    const beforePending = clone(pending); const beforePatch = clone(patch);
+    const revised = reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 3, patch });
+    assert.equal(revised.ok, false); assert.equal(revised.code, HandoverCode.INVALID_INPUT);
+    assert.equal(revised.handover.version, 3); assert.equal(revised.handover.expiresAt, base.expiresAt);
+    assert.deepEqual(pending, beforePending); assert.deepEqual(patch, beforePatch); assertOwnerUnchanged(revised);
+  }
+});
+
 test("submit persists pending_info with deterministic missing fields and retains owner", () => {
   const handover = { ...base, proposedOwnerId: "", expiresAt: null };
   const result = submitHandover({ domain, handover, actorId: "mother", expectedVersion: 1 });
@@ -119,8 +137,34 @@ test("expiry applies only after the deadline and never changes owner", () => {
   const expired = expireHandover({ domain, handover: pending, now: "2026-09-01T00:00:00.001Z", expectedVersion: 9 });
   assert.equal(expired.code, HandoverCode.OK); assert.equal(expired.handover.status, "expired"); assert.equal(expired.handover.confirmationRequiredFromId, null); assertOwnerUnchanged(expired);
   assert.equal(expireHandover({ domain, handover: { ...pending, status: "declined" }, now: "2026-10-01T00:00:00.000Z" }).code, HandoverCode.INVALID_TRANSITION);
-  assert.equal(expireHandover({ domain, handover: pending, now: "invalid", expectedVersion: 9 }).code, HandoverCode.NOT_EXPIRED);
+  assert.equal(expireHandover({ domain, handover: pending, now: "invalid", expectedVersion: 9 }).code, HandoverCode.INVALID_INPUT);
   assert.equal(expireHandover({ domain, handover: pending, now: "2026-10-01T00:00:00.000Z", expectedVersion: 8 }).code, HandoverCode.CONFLICT);
+});
+
+test("expiry validates real instants and compares valid offsets", () => {
+  const pending = { ...base, status: "pending_ack", confirmationRequiredFromId: "father", version: 9 };
+  for (const nowValue of ["2030-02-30T00:00:00Z", "2026-09-01T24:00:00Z", new Date("2026-09-01T00:00:00Z")]) {
+    const result = expireHandover({ domain, handover: pending, now: nowValue, expectedVersion: 9 });
+    assert.equal(result.ok, false); assert.equal(result.code, HandoverCode.INVALID_INPUT);
+    assert.equal(result.handover.version, 9); assertOwnerUnchanged(result);
+  }
+  for (const expiresAt of ["2030-02-30T00:00:00Z", "2026-09-01T00:60:00Z", new Date("2026-09-01T00:00:00Z")]) {
+    const result = expireHandover({
+      domain,
+      handover: { ...pending, expiresAt },
+      now: "2026-10-01T00:00:00Z",
+      expectedVersion: 9,
+    });
+    assert.equal(result.ok, false); assert.equal(result.code, HandoverCode.INVALID_INPUT);
+    assert.equal(result.handover.version, 9); assertOwnerUnchanged(result);
+  }
+  const offsetExpiry = { ...pending, expiresAt: "2026-09-01T08:00:00+08:00" };
+  assert.equal(expireHandover({
+    domain, handover: offsetExpiry, now: "2026-09-01T00:00:00Z", expectedVersion: 9,
+  }).code, HandoverCode.NOT_EXPIRED);
+  assert.equal(expireHandover({
+    domain, handover: offsetExpiry, now: "2026-09-01T00:00:00.001Z", expectedVersion: 9,
+  }).code, HandoverCode.OK);
 });
 
 test("null expiry never expires a pending handover", () => {

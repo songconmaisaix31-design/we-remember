@@ -228,6 +228,34 @@ test("rejects cross-family events, owner duplication, and stale target domains",
   );
 });
 
+test("rejects impossible event and todo calendar values without mutating inputs", () => {
+  for (const startsAt of ["2030-02-30T09:00:00Z", "2026-09-01T24:00:00Z", new Date("2026-09-01T09:00:00Z")]) {
+    const input = { ...event, startsAt };
+    const before = structuredClone(input);
+    expectCode(
+      linkEventToDomain({ event: input, domain, members, expectedDomainVersion: 2 }),
+      DOMAIN_COMMAND_ERROR_CODES.INVALID_EVENT,
+    );
+    assert.deepEqual(input, before);
+  }
+
+  for (const dueAt of ["2030-02-30T09:00:00Z", "2026-09-01T09:60:00Z", new Date("2026-09-01T09:00:00Z")]) {
+    const input = { ...todo, dueAt };
+    const before = structuredClone(input);
+    expectCode(
+      linkTodoToDomain({
+        todo: input,
+        domain,
+        members,
+        expectedDomainVersion: 2,
+        expectedTodoVersion: 3,
+      }),
+      DOMAIN_COMMAND_ERROR_CODES.INVALID_TODO,
+    );
+    assert.deepEqual(input, before);
+  }
+});
+
 test("domain-owner todo inherits the current owner and increments its version", () => {
   const input = freezeDeep({ ...todo, assigneeId: "father", assignmentBasis: "domain_owner" });
   const before = snapshot(input);
