@@ -58,12 +58,28 @@ test("submit rejects wrong transition, actor, and stale version", () => {
 
 test("revise accepts only allowlisted patch fields, clears acknowledgements, and can return pending_info", () => {
   const pending = { ...base, status: "pending_ack", confirmationRequiredFromId: "father", version: 3 };
-  const result = reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 3, patch: { proposedOwnerId: "", expiresAt: null } });
+  const result = reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 3, patch: { expiresAt: null, missingFields: ["scopeIncluded"] } });
   assert.equal(result.ok, true); assert.equal(result.code, HandoverCode.INCOMPLETE); assert.equal(result.handover.status, "pending_info"); assert.deepEqual(result.handover.acknowledgements, []);
-  assert.deepEqual(result.handover.missingFields, ["proposedOwnerId"]); assert.equal(result.handover.version, 4); assertOwnerUnchanged(result);
+  assert.deepEqual(result.handover.missingFields, ["scopeIncluded"]); assert.equal(result.handover.proposedOwnerId, "father"); assert.equal(result.handover.version, 4); assertOwnerUnchanged(result);
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "mother", expectedVersion: 3, patch: { status: "accepted" } }).code, HandoverCode.INVALID_TRANSITION);
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "grandmother", expectedVersion: 3, patch: {} }).code, HandoverCode.PERMISSION);
   assert.equal(reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 2, patch: {} }).code, HandoverCode.CONFLICT);
+});
+
+test("only the current owner may redirect a proposal to a third person", () => {
+  const pending = { ...base, status: "pending_ack", confirmationRequiredFromId: "father", version: 3 };
+  const before = clone(pending);
+  const patch = { proposedOwnerId: "grandmother" };
+
+  const confirmerRedirect = reviseHandover({ domain, handover: pending, actorId: "father", expectedVersion: 3, patch });
+  assert.equal(confirmerRedirect.ok, false); assert.equal(confirmerRedirect.code, HandoverCode.PERMISSION); assert.equal(confirmerRedirect.handover.proposedOwnerId, "father"); assert.equal(confirmerRedirect.handover.version, 3);
+  const thirdPartyRedirect = reviseHandover({ domain, handover: pending, actorId: "grandmother", expectedVersion: 3, patch });
+  assert.equal(thirdPartyRedirect.ok, false); assert.equal(thirdPartyRedirect.code, HandoverCode.PERMISSION); assert.equal(thirdPartyRedirect.handover.proposedOwnerId, "father"); assert.equal(thirdPartyRedirect.handover.version, 3);
+
+  const ownerRedirect = reviseHandover({ domain, handover: pending, actorId: "mother", expectedVersion: 3, patch });
+  assert.equal(ownerRedirect.ok, true); assert.equal(ownerRedirect.handover.proposedOwnerId, "grandmother");
+  assert.equal(ownerRedirect.handover.confirmationRequiredFromId, "grandmother"); assert.equal(ownerRedirect.handover.version, 4);
+  assert.deepEqual(pending, before); assert.deepEqual(patch, { proposedOwnerId: "grandmother" });
 });
 
 test("revise can clear explicit missing information only after structural fields are complete", () => {
