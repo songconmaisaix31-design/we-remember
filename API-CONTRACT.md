@@ -6,6 +6,73 @@
 - Confirmation binds the actor, draft revision, intended event, recipients, and idempotency key.
 - Display names are presentation data. Server-resolved subject IDs are authoritative.
 - All external input and Agent output is validated at the trust boundary.
+- Feishu identity proves only the external subject. Family and group access comes from an existing application binding.
+- OAuth codes and tokens remain server-side and never appear in product JSON responses or browser storage.
+
+## Feishu authentication
+
+### `GET /api/auth/feishu/start`
+
+Creates a single-use OAuth state bound to the initiating browser session and redirects to Feishu. The redirect URI is server-configured and allowlisted; clients cannot supply it.
+
+### `GET /api/auth/feishu/callback`
+
+Validates state, exchanges the authorization code server-side, resolves the external subject, rotates the application session, and redirects to `/app/`. Missing, expired, reused, or mismatched state fails closed.
+
+### `GET /api/session`
+
+```ts
+interface SessionResponse {
+  status: "signed_out" | "setup_required" | "ready";
+  provider?: "feishu";
+  displayName?: string;
+  matchedSpaces?: Array<{
+    spaceId: string;
+    name: string;
+    kind: "family" | "group";
+    memberCount: number;
+  }>;
+  selectedSpaceId?: string;
+  selectedRole?: FamilyRole;
+  visualMode?: "family" | "work";
+}
+
+type FamilyRole =
+  | "mother"
+  | "father"
+  | "daughter"
+  | "son"
+  | "grandfather"
+  | "grandmother";
+```
+
+`matchedSpaces` contains only spaces already bound to the authenticated external identity. No-match returns an empty array and does not create a space implicitly.
+
+### `POST /api/session/setup`
+
+```ts
+interface CompleteSessionSetupRequest {
+  spaceId: string;
+  role: FamilyRole;
+}
+```
+
+The server revalidates current membership before persisting the selection and rotating the session. `spaceId` must come from the current authenticated subject's matched set.
+
+### `POST /api/session/mode`
+
+```ts
+interface SetVisualModeRequest {
+  mode: "family" | "work";
+  expectedSessionRevision: number;
+}
+```
+
+Visual mode is presentation state only. Selecting work mode grants no additional workspace permissions.
+
+### `POST /api/auth/sign-out`
+
+Revokes the application session and clears its cookie. It does not revoke the person's Feishu authorization unless they explicitly request that separate action.
 
 ## `POST /api/transcriptions`
 

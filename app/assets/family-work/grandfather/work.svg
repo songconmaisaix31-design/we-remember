@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Grandfather — Teacher and mentor</title>
+  <desc id="description">Grandfather shown in the work form: teacher and mentor.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="cardigan-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M318 268 L344 292 L370 268 M344 292 L344 422 M303 348 L329 348 M359 348 L385 348" fill="none" stroke="#000" stroke-linecap="round" stroke-width="9" /></mask>
+  
+  </defs>
+  <g id="state-art" data-state="work">
+<g id="work-art" fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+<path id="grandfather-head" d="M327 87 C346 76 373 77 393 90 C413 104 423 128 419 153 L414 181 C407 204 390 222 367 229 L339 225 C315 217 299 197 295 172 L297 137 C300 116 310 99 327 87 Z M312 139 L311 166 C314 188 329 207 348 213 C368 215 388 200 397 178 L400 147 L381 137 L352 133 L333 124 Z" />
+    
+<g id="glasses" fill="none" stroke="currentColor" stroke-width="8"><circle cx="334" cy="160" r="20" /><circle cx="382" cy="160" r="20" /><path d="M354 160 L362 160" /></g>
+    
+<path id="grandfather-body" mask="url(#cardigan-cut)" d="M329 227 L369 227 L377 247 L408 257 L431 275 L450 307 L475 392 L472 412 L459 424 L374 432 L333 430 L315 416 L281 417 L277 390 L263 380 L239 401 L210 401 L201 379 L238 306 L257 276 L281 259 L322 248 Z M404 337 L399 393 L437 388 Z" />
+    
+<g id="teacher-cues" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <path id="lectern" stroke="none" d="M40 324 L216 324 L201 371 L151 371 L167 449 L88 449 L104 371 L55 371 Z M63 339 L193 339 L187 356 L69 356 Z" />
+  <path id="lesson-book" stroke="none" d="M52 282 C83 272 111 279 130 294 L130 326 C108 312 83 307 52 315 Z M136 294 C158 277 183 272 212 282 L212 315 C184 307 159 312 136 326 Z" />
+  <path id="pointer" d="M219 262 L172 332" fill="none" stroke-width="9" />
+</g>
+</g>
+  </g>
+</svg>

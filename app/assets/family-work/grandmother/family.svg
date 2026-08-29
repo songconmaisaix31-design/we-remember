@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Grandmother — Knitting at home</title>
+  <desc id="description">Grandmother shown in the family form: knitting at home.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="shawl-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M301 274 C319 302 347 316 379 274 M301 274 L288 391 M379 274 L391 391 M289 391 C321 406 358 406 390 391" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="9" /></mask>
+  
+  </defs>
+  <g id="state-art" data-state="family">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="grandmother-head" d="M342 84 C363 76 388 82 403 97 C416 111 421 131 417 150 C429 161 433 178 427 192 C421 208 407 218 390 219 C383 226 374 231 364 233 L338 227 C315 219 299 199 295 173 L297 139 C300 116 316 94 342 84 Z M312 139 L311 166 C315 189 329 207 349 213 C369 215 388 200 397 179 L400 149 L380 137 L352 133 L332 123 Z" />
+    <path id="low-bun" d="M397 191 C420 186 441 200 444 220 C447 241 431 258 409 258 C392 258 380 249 375 235 Z" />
+    <g id="glasses" fill="none" stroke="currentColor" stroke-width="8"><circle cx="334" cy="160" r="20" /><circle cx="382" cy="160" r="20" /><path d="M354 160 L362 160" /></g>
+    <path id="grandmother-body" mask="url(#shawl-cut)" d="M329 228 L369 228 L377 248 L408 258 L431 276 L451 308 L476 391 L473 412 L459 424 L374 432 L331 430 L313 416 L279 417 L275 391 L261 381 L237 401 L207 401 L198 378 L236 305 L256 276 L280 259 L322 248 Z M405 337 L400 393 L438 388 Z" />
+    <path id="yarn-ball" d="M86 357 C117 343 154 355 167 383 C181 413 163 446 130 452 C99 458 70 439 67 408 C64 386 71 367 86 357 Z M90 379 C111 367 137 371 151 389 L137 400 C126 388 109 385 96 393 Z M83 414 C101 401 126 403 144 418 L132 432 C119 421 101 419 89 428 Z" />
+    <g id="needles" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="8"><path d="M91 360 L172 280" /><path d="M139 360 L87 275" /></g>
+  </g>
+
+  </g>
+</svg>

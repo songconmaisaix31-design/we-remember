@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Grandmother — Professional tailor</title>
+  <desc id="description">Grandmother shown in the work form: professional tailor.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="shawl-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M301 274 C319 302 347 316 379 274 M301 274 L288 391 M379 274 L391 391 M289 391 C321 406 358 406 390 391" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="9" /></mask>
+  
+  </defs>
+  <g id="state-art" data-state="work">
+<g id="work-art" fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+<path id="grandmother-head" d="M342 84 C363 76 388 82 403 97 C416 111 421 131 417 150 C429 161 433 178 427 192 C421 208 407 218 390 219 C383 226 374 231 364 233 L338 227 C315 219 299 199 295 173 L297 139 C300 116 316 94 342 84 Z M312 139 L311 166 C315 189 329 207 349 213 C369 215 388 200 397 179 L400 149 L380 137 L352 133 L332 123 Z" />
+    
+<path id="low-bun" d="M397 191 C420 186 441 200 444 220 C447 241 431 258 409 258 C392 258 380 249 375 235 Z" />
+    
+<g id="glasses" fill="none" stroke="currentColor" stroke-width="8"><circle cx="334" cy="160" r="20" /><circle cx="382" cy="160" r="20" /><path d="M354 160 L362 160" /></g>
+    
+<path id="grandmother-body" mask="url(#shawl-cut)" d="M329 228 L369 228 L377 248 L408 258 L431 276 L451 308 L476 391 L473 412 L459 424 L374 432 L331 430 L313 416 L279 417 L275 391 L261 381 L237 401 L207 401 L198 378 L236 305 L256 276 L280 259 L322 248 Z M405 337 L400 393 L438 388 Z" />
+    
+<g id="tailor-cues" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <path id="sewing-table" stroke="none" d="M31 393 L235 393 L235 417 L31 417 Z M52 417 L76 417 L70 457 L46 457 Z M195 417 L219 417 L225 457 L201 457 Z" />
+  <path id="sewing-machine" stroke="none" d="M55 299 L164 299 C195 299 215 320 215 351 L215 393 L188 393 L188 351 C188 336 179 326 164 326 L139 326 L139 366 L168 366 L168 386 L61 386 L61 366 L104 366 L104 326 L55 326 Z M70 276 L125 276 L133 299 L62 299 Z" />
+  <path id="needle" d="M139 326 L139 378" fill="none" stroke-width="6" />
+  <path id="measuring-tape" d="M307 274 C322 297 340 307 359 303 C376 300 389 286 398 269" fill="none" stroke-width="8" stroke-dasharray="12 8" />
+</g>
+</g>
+  </g>
+</svg>

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Son: family to work</title>
+  <desc id="description">Son transitions from skateboarding to photographer.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="hoodie-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M317 276 L345 302 L373 276 M345 302 L333 394 M345 302 L357 394" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="9" /></mask>
+  
+    <mask id="destination-reveal" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="#000" />
+      <circle class="reveal-disc" cx="133" cy="360" r="0" fill="#fff" />
+    </mask>
+    <style>
+:root { --duration: 2.4s; --enter: cubic-bezier(.16, 1, .3, 1); --settle: cubic-bezier(.22, 1, .36, 1); }
+      .source, .destination, .reveal-disc, .focus-ring { transform-box: fill-box; transform-origin: center; }
+      .source { animation: source-out var(--duration) var(--enter) .12s forwards; }
+      .destination { opacity: 0; mask: url(#destination-reveal); animation: destination-in var(--duration) var(--settle) .12s forwards; }
+      .reveal-disc { animation: reveal var(--duration) var(--enter) .12s forwards; }
+      .focus-ring { fill: none; stroke: currentColor; stroke-width: 5; opacity: 0; animation: ring var(--duration) var(--settle) .12s forwards; }
+      @keyframes source-out {
+        0%, 20% { opacity: 1; transform: none; }
+        38% { opacity: 1; transform: translateY(3px) scale(.975); }
+        68% { opacity: .28; transform: translateY(-2px) scale(1.012); }
+        100% { opacity: 0; transform: translateY(4px) scale(.96); }
+      }
+      @keyframes destination-in {
+        0%, 16% { opacity: 0; transform: translateY(8px) scale(.92); }
+        68% { opacity: 1; transform: translateY(-2px) scale(1.012); }
+        86% { opacity: 1; transform: translateY(1px) scale(.997); }
+        100% { opacity: 1; transform: none; }
+      }
+      @keyframes reveal { 0%, 16% { r: 0; } 100% { r: 650px; } }
+      @keyframes ring { 0%, 16% { opacity: 0; r: 0; } 44% { opacity: .22; } 100% { opacity: 0; r: 650px; stroke-width: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .source { animation: none; opacity: 0; }
+        .destination { animation: none; opacity: 1; transform: none; }
+        .reveal-disc { animation: none; r: 650px; }
+        .focus-ring { animation: none; opacity: 0; }
+      }
+    </style>
+  </defs>
+  <g class="source" data-state="family">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="son-head" d="M305 104 C319 83 343 74 370 78 C394 81 412 95 421 115 L439 122 L432 139 L411 140 L412 168 C411 195 393 218 367 227 L339 225 C316 216 301 196 297 170 L298 139 L284 137 L286 120 Z M315 141 L314 168 C318 190 332 207 351 212 C370 215 388 201 397 181 L400 151 L379 140 L348 136 Z" />
+    <path id="headphones" d="M299 142 C299 103 323 82 356 82 C390 82 413 105 413 143 L401 143 C400 114 383 96 356 96 C329 96 312 113 311 143 Z M292 145 L310 145 L310 185 L294 185 Z M402 145 L420 145 L418 185 L402 185 Z" />
+    <path id="son-body" mask="url(#hoodie-cut)" d="M330 226 L370 226 L378 247 L411 257 L434 275 L454 308 L480 390 L477 410 L463 422 L376 431 L333 429 L315 415 L279 416 L275 390 L260 379 L235 399 L204 399 L195 375 L235 302 L257 273 L282 257 L323 247 Z M407 336 L402 391 L439 386 Z" />
+    <path id="skateboard" d="M42 408 C56 421 79 428 107 428 L187 428 C216 428 238 420 251 408 L246 427 C228 443 208 449 184 449 L109 449 C84 449 62 443 47 428 Z M82 453 C92 453 99 460 99 469 C99 478 92 485 82 485 C72 485 65 478 65 469 C65 460 72 453 82 453 Z M208 453 C218 453 225 460 225 469 C225 478 218 485 208 485 C198 485 191 478 191 469 C191 460 198 453 208 453 Z" />
+  </g>
+
+  </g>
+  <g class="destination" data-state="work">
+<g id="work-art" fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+<path id="son-head" d="M305 104 C319 83 343 74 370 78 C394 81 412 95 421 115 L439 122 L432 139 L411 140 L412 168 C411 195 393 218 367 227 L339 225 C316 216 301 196 297 170 L298 139 L284 137 L286 120 Z M315 141 L314 168 C318 190 332 207 351 212 C370 215 388 201 397 181 L400 151 L379 140 L348 136 Z" />
+    
+<path id="headphones" d="M299 142 C299 103 323 82 356 82 C390 82 413 105 413 143 L401 143 C400 114 383 96 356 96 C329 96 312 113 311 143 Z M292 145 L310 145 L310 185 L294 185 Z M402 145 L420 145 L418 185 L402 185 Z" />
+    
+<path id="son-body" mask="url(#hoodie-cut)" d="M330 226 L370 226 L378 247 L411 257 L434 275 L454 308 L480 390 L477 410 L463 422 L376 431 L333 429 L315 415 L279 416 L275 390 L260 379 L235 399 L204 399 L195 375 L235 302 L257 273 L282 257 L323 247 Z M407 336 L402 391 L439 386 Z" />
+    
+<g id="photographer-cues" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <path id="camera" stroke="none" d="M48 324 L83 324 L96 303 L153 303 L166 324 L206 324 L206 402 L48 402 Z M87 363 C87 392 111 414 140 414 C169 414 193 392 193 363 C193 334 169 312 140 312 C111 312 87 334 87 363 Z M107 363 C107 345 122 331 140 331 C158 331 173 345 173 363 C173 381 158 395 140 395 C122 395 107 381 107 363 Z" />
+  <path id="flash" stroke="none" d="M66 302 L105 302 L111 324 L60 324 Z" />
+  <path id="camera-strap" d="M81 320 C93 264 135 243 184 270 C203 281 218 302 224 326" fill="none" stroke-width="10" />
+</g>
+</g>
+  </g>
+  <circle class="focus-ring" cx="133" cy="360" r="0" />
+</svg>

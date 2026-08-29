@@ -29,6 +29,7 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - The UI does not claim that local demo notifications or transcription are production delivery.
 - The desktop layout and a 390 px mobile viewport have no horizontal overflow, clipped primary action, or overlapping content.
 - Reduced-motion users do not receive decorative movement.
+- The login gate, space picker, avatar picker, and bidirectional role transition work at desktop and 390 px mobile widths.
 
 ## Product boundaries
 
@@ -36,6 +37,37 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - The prototype uses deterministic local extraction for representative scenarios. Production extraction must implement the API contract and validate all model output.
 - Notifications remain consent- and authorization-gated. Mentioning a person does not automatically grant permission to notify them.
 - High-risk health, safety, financial, or legal content may create a draft but must not trigger consequential actions without human review.
+
+## Feishu sign-in and identity setup
+
+The first application visit begins in a signed-out state. The primary path is:
+
+1. Continue with Feishu.
+2. The server validates the Feishu OAuth callback and establishes an HTTP-only application session.
+3. The server resolves the authenticated `(tenantKey, openId)` only against existing, revocable external-identity bindings.
+4. The person chooses one matched family or group space.
+5. The person chooses one of the six role avatars, then enters the family workspace.
+
+The static prototype demonstrates this flow with clearly labeled fictional matches. It never claims that the browser has exchanged a real OAuth code, and it stores no token or provider identifier.
+
+Identity acceptance criteria:
+
+- The application content is unavailable until setup is complete.
+- Feishu sign-in and family/group membership are separate decisions; a provider identity never creates membership by itself.
+- A person can select among matched spaces and all six role avatars.
+- The local prototype persists only the selected fictional space, role, and visual mode for the browser session.
+- Signing out clears the local prototype session and returns to the login gate.
+- Unknown or unbound Feishu identities receive a safe no-match state instead of a guessed family.
+
+## Family and work forms
+
+Each role has an exact family form, work form, family-to-work animation, and work-to-family animation imported from `family-work-svg-suite-2026-08-29.zip`.
+
+- The selected family avatar appears in profile and space controls.
+- Switching to the future work workspace plays the role's family-to-work SVG once, then settles on the static work form.
+- Switching back plays work-to-family once, then settles on the static family form.
+- Reduced-motion users see the destination static form immediately.
+- The current release changes identity presentation and workspace label only; work-domain features remain explicitly future scope.
 
 ## Connection center
 

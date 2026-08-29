@@ -32,6 +32,8 @@ The check emits only versions and booleans. It intentionally omits account IDs, 
 
 Do not send a real message until the recipient, content, sending identity, and idempotency key are explicit.
 
+The developer-machine `lark-cli` login is not an end-user application session. Browser sign-in must use the server-side Feishu OAuth flow defined in `API-CONTRACT.md`; its callback resolves existing external-identity bindings and issues the application's own secure session cookie.
+
 ## DingTalk adapter bootstrap
 
 1. Use the installed `dws` command; `dingworkspace-cli` is the package concept, not the executable name.

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Father: family to work</title>
+  <desc id="description">Father transitions from home repair to site engineer.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+
+    <mask id="destination-reveal" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="#000" />
+      <circle class="reveal-disc" cx="126" cy="374" r="0" fill="#fff" />
+    </mask>
+    <style>
+:root { --duration: 2.4s; --enter: cubic-bezier(.16, 1, .3, 1); --settle: cubic-bezier(.22, 1, .36, 1); }
+      .source, .destination, .reveal-disc, .focus-ring { transform-box: fill-box; transform-origin: center; }
+      .source { animation: source-out var(--duration) var(--enter) .12s forwards; }
+      .destination { opacity: 0; mask: url(#destination-reveal); animation: destination-in var(--duration) var(--settle) .12s forwards; }
+      .reveal-disc { animation: reveal var(--duration) var(--enter) .12s forwards; }
+      .focus-ring { fill: none; stroke: currentColor; stroke-width: 5; opacity: 0; animation: ring var(--duration) var(--settle) .12s forwards; }
+      @keyframes source-out {
+        0%, 20% { opacity: 1; transform: none; }
+        38% { opacity: 1; transform: translateY(3px) scale(.975); }
+        68% { opacity: .28; transform: translateY(-2px) scale(1.012); }
+        100% { opacity: 0; transform: translateY(4px) scale(.96); }
+      }
+      @keyframes destination-in {
+        0%, 16% { opacity: 0; transform: translateY(8px) scale(.92); }
+        68% { opacity: 1; transform: translateY(-2px) scale(1.012); }
+        86% { opacity: 1; transform: translateY(1px) scale(.997); }
+        100% { opacity: 1; transform: none; }
+      }
+      @keyframes reveal { 0%, 16% { r: 0; } 100% { r: 650px; } }
+      @keyframes ring { 0%, 16% { opacity: 0; r: 0; } 44% { opacity: .22; } 100% { opacity: 0; r: 650px; stroke-width: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .source { animation: none; opacity: 0; }
+        .destination { animation: none; opacity: 1; transform: none; }
+        .reveal-disc { animation: none; r: 650px; }
+        .focus-ring { animation: none; opacity: 0; }
+      }
+    </style>
+  </defs>
+  <g class="source" data-state="family">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="father-head" d="M326 82 L370 82 L393 94 L405 112 L410 139 L407 174 L397 201 L379 220 L355 228 L331 222 L312 205 L301 181 L299 145 L307 113 Z M317 139 L315 164 L321 186 L334 204 L352 212 L370 205 L384 188 L390 166 L387 139 L371 126 L346 124 Z" />
+    <path id="father-mustache" d="M330 182 C340 174 349 176 355 183 C362 176 372 174 381 182 C374 194 363 197 355 190 C346 197 336 194 330 182 Z" />
+    <path id="father-body" d="M331 225 L369 225 L376 246 L407 255 L430 270 L451 301 L482 385 L482 404 L473 416 L454 424 L373 431 L337 429 L321 414 L284 416 L281 386 L270 375 L244 397 L211 397 L203 374 L240 302 L259 273 L283 257 L324 246 Z M406 331 L399 389 L439 385 Z" />
+    <path id="toolbox" d="M42 355 L190 355 L198 421 L34 421 Z M78 355 L78 334 C78 319 91 307 106 307 L127 307 C142 307 155 319 155 334 L155 355 L139 355 L139 336 C139 329 133 323 126 323 L107 323 C100 323 94 329 94 336 L94 355 Z" />
+    <path id="wrench" d="M76 300 L67 288 L137 222 L132 201 L146 188 L161 203 L157 218 L173 215 L185 227 L180 244 L163 252 L149 246 L88 308 Z M69 293 L78 302 L68 312 L58 302 Z" />
+  </g>
+
+  </g>
+  <g class="destination" data-state="work">
+<g id="work-art" fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+<path id="father-head" d="M326 82 L370 82 L393 94 L405 112 L410 139 L407 174 L397 201 L379 220 L355 228 L331 222 L312 205 L301 181 L299 145 L307 113 Z M317 139 L315 164 L321 186 L334 204 L352 212 L370 205 L384 188 L390 166 L387 139 L371 126 L346 124 Z" />
+    
+<path id="father-mustache" d="M330 182 C340 174 349 176 355 183 C362 176 372 174 381 182 C374 194 363 197 355 190 C346 197 336 194 330 182 Z" />
+    
+<path id="father-body" d="M331 225 L369 225 L376 246 L407 255 L430 270 L451 301 L482 385 L482 404 L473 416 L454 424 L373 431 L337 429 L321 414 L284 416 L281 386 L270 375 L244 397 L211 397 L203 374 L240 302 L259 273 L283 257 L324 246 Z M406 331 L399 389 L439 385 Z" />
+    
+<g id="engineer-cues" fill="currentColor" fill-rule="evenodd" stroke-linecap="round" stroke-linejoin="round">
+  <path id="hard-hat" d="M298 124 C302 94 321 73 351 66 L355 91 L371 91 L375 66 C403 74 422 96 426 124 L443 124 L443 143 L285 143 L285 124 Z" />
+  <path id="blueprint" d="M38 315 L213 315 L225 432 L50 432 Z M65 342 L111 342 L111 359 L65 359 Z M127 342 L197 342 L197 359 L127 359 Z M66 377 L195 377 L195 394 L66 394 Z M66 409 L147 409 L147 421 L66 421 Z" />
+  <path id="pencil" d="M216 286 L229 299 L183 345 L164 351 L170 332 Z" />
+</g>
+</g>
+  </g>
+  <circle class="focus-ring" cx="126" cy="374" r="0" />
+</svg>

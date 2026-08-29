@@ -7,6 +7,8 @@ The prototype is a dependency-free static web application:
 - `app/index.html`: semantic page structure and product copy.
 - `app/styles.css`: responsive layout, tokens, transitions, and reduced-motion handling.
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
+- `app/assets/family-work/`: the verified 24-file, six-role static and bidirectional SVG suite.
+- `app/app.js` session setup: fictional Feishu sign-in fixture, bound-space choice, avatar choice, session-only persistence, and deterministic family/work transition playback.
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
 - `docs/integration-gateway.md`: routing, identity, privacy, reliability, and platform-adapter boundaries.
@@ -15,6 +17,27 @@ The prototype is a dependency-free static web application:
 - `scripts/verify_app.py`: structural contract checks that require no installed packages.
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
+
+## Authentication state model
+
+```text
+signed_out -> provider_verified -> space_selection -> avatar_selection -> signed_in
+     ^                                                               |
+     `----------------------------- sign_out -------------------------'
+```
+
+The prototype uses `sessionStorage` only for fictional `spaceId`, `role`, and `mode`. Production uses server-side session state with a secure, HTTP-only, same-site cookie. OAuth codes and tokens never enter browser storage. Feishu `(tenantKey, openId)` is an external lookup key, not an internal member ID or permission.
+
+The production flow requires a backend because token exchange, binding resolution, session issuance, and revocation cannot be safely implemented in this static browser application. The prototype's “使用飞书登录” action is intentionally marked as a local flow demonstration.
+
+## Role asset state
+
+```text
+family_static -> family_to_work (2400 ms) -> work_static
+work_static   -> work_to_family (2400 ms) -> family_static
+```
+
+Every transition swaps to its exact static destination after playback so future renders do not depend on animation timing. A monotonically increasing transition revision prevents an old timer from overwriting a newer mode choice. `prefers-reduced-motion: reduce` skips the animated file.
 
 ## State model
 
@@ -45,6 +68,9 @@ When browser speech recognition is unavailable, controls enter an explicit unava
 - Agent output is a draft until a human confirms it.
 - Notification recipients must be resolved to authorized identities server-side; display names are not authority.
 - Logs must not contain raw audio or unnecessary transcript content.
+- OAuth state is single-use and bound to the initiating browser session. The callback rejects missing, expired, reused, or mismatched state.
+- Space membership comes only from an existing server-side binding; provider display names, chat names, emails, and phone numbers are never authority.
+- Session cookies use `Secure`, `HttpOnly`, and `SameSite=Lax` or stricter settings. Session rotation occurs after login and space selection.
 
 ## Integration gateway
 
@@ -75,3 +101,5 @@ python -m http.server 4173
 ```
 
 Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome at 1440×1000 and 390×844, including overflow metrics and screenshots.
+
+Also verify the signed-out gate, fictional Feishu match, all six avatar choices, both animation directions, session restoration, sign-out, reduced motion, and exact 24-SVG asset inventory.

@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Mother: family to work</title>
+  <desc id="description">Mother transitions from cooking at home to office professional.</desc>
+  <metadata>Working Woman by sentya irma from Noun Project, icon 7641720, Creative Commons. Mother-role artwork and animation are original derivatives.</metadata>
+  <defs>
+<mask id="apron-cut" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="#fff" />
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M303 278 C302 315 299 353 296 389 M352 274 C353 315 362 355 373 389 M297 389 C320 400 350 400 373 389" stroke-width="9" />
+        <path d="M316 344 C328 351 343 351 355 344" stroke-width="8" />
+      </g>
+    </mask>
+  
+    <mask id="destination-reveal" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="#000" />
+      <circle class="reveal-disc" cx="126" cy="356" r="0" fill="#fff" />
+    </mask>
+    <style>
+:root { --duration: 2.4s; --enter: cubic-bezier(.16, 1, .3, 1); --settle: cubic-bezier(.22, 1, .36, 1); }
+      .source, .destination, .reveal-disc, .focus-ring { transform-box: fill-box; transform-origin: center; }
+      .source { animation: source-out var(--duration) var(--enter) .12s forwards; }
+      .destination { opacity: 0; mask: url(#destination-reveal); animation: destination-in var(--duration) var(--settle) .12s forwards; }
+      .reveal-disc { animation: reveal var(--duration) var(--enter) .12s forwards; }
+      .focus-ring { fill: none; stroke: currentColor; stroke-width: 5; opacity: 0; animation: ring var(--duration) var(--settle) .12s forwards; }
+      @keyframes source-out {
+        0%, 20% { opacity: 1; transform: none; }
+        38% { opacity: 1; transform: translateY(3px) scale(.975); }
+        68% { opacity: .28; transform: translateY(-2px) scale(1.012); }
+        100% { opacity: 0; transform: translateY(4px) scale(.96); }
+      }
+      @keyframes destination-in {
+        0%, 16% { opacity: 0; transform: translateY(8px) scale(.92); }
+        68% { opacity: 1; transform: translateY(-2px) scale(1.012); }
+        86% { opacity: 1; transform: translateY(1px) scale(.997); }
+        100% { opacity: 1; transform: none; }
+      }
+      @keyframes reveal { 0%, 16% { r: 0; } 100% { r: 650px; } }
+      @keyframes ring { 0%, 16% { opacity: 0; r: 0; } 44% { opacity: .22; } 100% { opacity: 0; r: 650px; stroke-width: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .source { animation: none; opacity: 0; }
+        .destination { animation: none; opacity: 1; transform: none; }
+        .reveal-disc { animation: none; r: 650px; }
+        .focus-ring { animation: none; opacity: 0; }
+      }
+    </style>
+  </defs>
+  <g class="source" data-state="family">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="mother" mask="url(#apron-cut)" d="M365 74 L381 75 L396 82 L404 90 L410 101 L412 117 L409 127 L402 135 L406 152 L406 176 L399 199 L394 207 L382 218 L369 223 L357 224 L352 229 L352 246 L382 256 L412 270 L427 287 L454 332 L486 393 L486 406 L481 415 L472 421 L358 431 L345 430 L336 421 L285 422 L284 397 L278 394 L270 394 L270 360 L265 362 L237 394 L207 394 L201 360 L252 273 L260 264 L273 257 L303 249 L303 237 L287 223 L275 202 L271 189 L269 161 L275 135 L287 112 L299 100 L321 90 L343 90 L352 79 Z M290 144 L286 160 L287 181 L292 198 L299 211 L314 224 L327 224 L336 220 L349 207 L352 195 L364 188 L366 184 L364 173 L358 181 L349 182 L339 172 L307 158 Z M401 348 L396 388 L427 384 Z M334 238 L328 241 L320 241 L320 254 L331 256 L335 253 Z" />
+    <path id="saucepan" d="M42 362 L181 362 L174 390 L238 383 L241 400 L170 407 L166 422 L54 422 Z" />
+    <g id="lid-and-steam" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M67 351 C88 333 135 333 158 351" stroke-width="11" />
+      <path d="M105 333 C105 324 121 324 121 333" stroke-width="9" />
+      <path d="M79 315 C63 296 90 282 76 261" stroke-width="10" />
+      <path d="M119 309 C102 287 132 273 118 248" stroke-width="10" />
+      <path d="M157 318 C142 298 169 286 157 266" stroke-width="10" />
+    </g>
+  </g>
+
+  </g>
+  <g class="destination" data-state="work">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="person" d="M 365 74 L 381 75 L 396 82 L 404 90 L 410 101 L 412 117 L 409 127 L 402 135 L 406 152 L 406 176 L 399 199 L 394 207 L 382 218 L 369 223 L 357 224 L 352 229 L 352 246 L 382 256 L 412 270 L 427 287 L 454 332 L 486 393 L 486 406 L 481 415 L 472 421 L 358 431 L 345 430 L 336 421 L 285 422 L 284 397 L 278 394 L 270 394 L 270 360 L 265 362 L 237 394 L 207 394 L 201 360 L 252 273 L 260 264 L 273 257 L 303 249 L 303 237 L 287 223 L 275 202 L 271 189 L 269 161 L 275 135 L 287 112 L 299 100 L 321 90 L 343 90 L 352 79 Z M 290 144 L 286 160 L 287 181 L 292 198 L 299 211 L 314 224 L 327 224 L 336 220 L 349 207 L 352 195 L 364 188 L 366 184 L 364 173 L 358 181 L 349 182 L 339 172 L 307 158 Z M 401 348 L 396 388 L 427 384 Z M 334 238 L 328 241 L 320 241 L 320 254 L 331 256 L 335 253 Z" />
+    <path id="laptop-screen" d="M 24 283 L 168 284 L 173 291 L 200 437 L 47 427 L 42 419 L 20 297 L 20 287 Z" />
+    <path id="laptop-base" d="M 211 410 L 270 410 L 270 438 L 216 438 Z" />
+  </g>
+
+  </g>
+  <circle class="focus-ring" cx="126" cy="356" r="0" />
+</svg>
