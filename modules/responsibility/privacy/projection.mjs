@@ -1,9 +1,13 @@
-const FAMILY_ROLES = new Set(["mother", "father", "grandmother"]);
-const EVIDENCE_KINDS = new Set(["shareable_fact", "private_expression"]);
+const EVIDENCE_KINDS = new Set(["shareable_fact", "private_expression", "responsibility_request"]);
+const AUDIT_ENTITY_TYPES = new Set(["responsibility_domain", "handover", "todo", "reminder", "evidence"]);
+const AUDIT_METADATA_KEYS = new Set(["domainId", "handoverId", "todoId", "reminderId", "evidenceId", "fromOwnerId", "toOwnerId", "status", "version", "expectedDomainVersion", "handoverVersion"]);
+const EVIDENCE_KEYS = new Set(["id", "familyId", "subjectMemberId", "createdByMemberId", "kind", "visibility", "content", "version"]);
+const CONSENT_KEYS = new Set(["id", "evidenceId", "subjectMemberId", "grantedVisibility", "status", "version"]);
 
-const fail = (code) => freeze({ ok: false, error: { code } });
 const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isText = (value) => typeof value === "string" && value.length > 0;
+const isVersion = (value) => Number.isSafeInteger(value) && value >= 1;
+const fail = (code) => freeze({ ok: false, error: { code } });
 
 function freeze(value, seen = new WeakSet()) {
   if (value && typeof value === "object" && !seen.has(value)) {
@@ -14,135 +18,90 @@ function freeze(value, seen = new WeakSet()) {
   return value;
 }
 
-function validEvidence(input) {
-  return isRecord(input)
-    && isText(input.id)
-    && isText(input.familyId)
-    && isText(input.subjectId)
-    && isText(input.creatorId)
-    && EVIDENCE_KINDS.has(input.kind)
-    && Number.isSafeInteger(input.version)
-    && input.version >= 1
-    && isText(input.createdAt)
-    && isText(input.updatedAt);
+function onlyKeys(value, allowed) {
+  return Object.keys(value).every((key) => allowed.has(key));
 }
 
-function validConsent(consent, evidence) {
-  return isRecord(consent)
-    && consent.status === "granted"
-    && consent.evidenceId === evidence.id
-    && consent.familyId === evidence.familyId
-    && consent.subjectId === evidence.subjectId
-    && Number.isSafeInteger(consent.version)
-    && consent.version === evidence.version
-    && isText(consent.grantedAt);
+function validEvidence(value) {
+  return isRecord(value) && onlyKeys(value, EVIDENCE_KEYS) && isText(value.id) && isText(value.familyId)
+    && isText(value.subjectMemberId) && isText(value.createdByMemberId) && EVIDENCE_KINDS.has(value.kind)
+    && value.visibility === "private" && isText(value.content) && isVersion(value.version);
 }
 
-function safeFact(evidence) {
-  return freeze({
-    id: evidence.id,
-    subjectId: evidence.subjectId,
-    kind: evidence.kind,
-    version: evidence.version,
-    createdAt: evidence.createdAt,
-    updatedAt: evidence.updatedAt,
-    fact: isText(evidence.fact) ? evidence.fact : "",
-  });
+function validConsent(value) {
+  return isRecord(value) && onlyKeys(value, CONSENT_KEYS) && isText(value.id) && isText(value.evidenceId)
+    && isText(value.subjectMemberId) && value.grantedVisibility === "family"
+    && (value.status === "granted" || value.status === "revoked") && isVersion(value.version);
 }
 
-function safePrivateEvidence(evidence) {
-  return freeze({
-    id: evidence.id,
-    subjectId: evidence.subjectId,
-    creatorId: evidence.creatorId,
-    kind: evidence.kind,
-    version: evidence.version,
-    createdAt: evidence.createdAt,
-    updatedAt: evidence.updatedAt,
-    fact: evidence.kind === "shareable_fact" && isText(evidence.fact) ? evidence.fact : "",
-    expression: evidence.kind === "private_expression" && isText(evidence.expression) ? evidence.expression : "",
-  });
+function validMember(value) {
+  return isRecord(value) && isText(value.id) && isText(value.familyId) && value.status === "active";
 }
 
-function activeMember(state, activeMemberId) {
-  if (!isRecord(state) || !Array.isArray(state.members) || !isText(activeMemberId)) return null;
-  const member = state.members.find((candidate) => isRecord(candidate) && candidate.id === activeMemberId);
-  return member && isText(member.familyId) && FAMILY_ROLES.has(member.role) && member.status === "active" ? member : null;
+function safeEvidence(evidence) {
+  return freeze({ id: evidence.id, familyId: evidence.familyId, subjectMemberId: evidence.subjectMemberId, createdByMemberId: evidence.createdByMemberId, kind: evidence.kind, visibility: evidence.visibility, content: evidence.content, version: evidence.version });
 }
 
-/** Creates a self-only evidence record. Consent is deliberately absent by default. */
+function hasGrantedConsent(evidence, consents) {
+  const matching = consents.filter((consent) => validConsent(consent) && consent.evidenceId === evidence.id && consent.subjectMemberId === evidence.subjectMemberId);
+  if (matching.length === 0) return false;
+  const latestVersion = Math.max(...matching.map((consent) => consent.version));
+  const latest = matching.filter((consent) => consent.version === latestVersion);
+  return latest.length === 1 && latest[0].status === "granted";
+}
+
+/** Creates a private-by-default Evidence record using the frozen API contract. */
 export function createEvidence(input) {
-  if (!validEvidence(input)) return fail("evidence_invalid");
-  const evidence = {
-    id: input.id,
-    familyId: input.familyId,
-    subjectId: input.subjectId,
-    creatorId: input.creatorId,
-    kind: input.kind,
-    version: input.version,
-    createdAt: input.createdAt,
-    updatedAt: input.updatedAt,
-    fact: input.kind === "shareable_fact" && isText(input.fact) ? input.fact : "",
-    expression: input.kind === "private_expression" && isText(input.expression) ? input.expression : "",
-    consents: [],
-  };
-  return freeze({ ok: true, evidence });
+  if (!isRecord(input) || !isText(input.id) || !isText(input.familyId) || !isText(input.subjectMemberId)
+    || !isText(input.createdByMemberId) || !EVIDENCE_KINDS.has(input.kind) || !isText(input.content)
+    || !isVersion(input.version) || (input.visibility !== undefined && input.visibility !== "private")) return fail("evidence_invalid");
+  return freeze({ ok: true, evidence: safeEvidence({ ...input, visibility: "private" }) });
 }
 
-/** Grants family visibility only when the evidence subject performs the action. */
-export function grantFamilyConsent(evidence, actorId, grantedAt) {
-  if (!validEvidence(evidence)) return fail("evidence_invalid");
-  if (actorId !== evidence.subjectId) return fail("consent_forbidden");
-  if (evidence.kind !== "shareable_fact") return fail("consent_not_shareable");
-  if (!isText(grantedAt)) return fail("consent_invalid");
-  const prior = Array.isArray(evidence.consents) ? evidence.consents.filter((item) => validConsent(item, evidence)) : [];
-  const consent = { evidenceId: evidence.id, familyId: evidence.familyId, subjectId: evidence.subjectId, status: "granted", version: evidence.version + 1, grantedAt };
-  return freeze({ ok: true, evidence: { ...evidence, version: evidence.version + 1, updatedAt: grantedAt, consents: [...prior, consent] } });
+/** Returns a separate granted Consent record; Evidence itself is never mutated. */
+export function grantFamilyConsent(evidence, actorId, consent) {
+  if (!validEvidence(evidence) || !validConsent(consent)) return fail("consent_invalid");
+  if (actorId !== evidence.subjectMemberId || consent.subjectMemberId !== evidence.subjectMemberId || consent.evidenceId !== evidence.id) return fail("consent_forbidden");
+  if (consent.status !== "granted") return fail("consent_invalid");
+  return freeze({ ok: true, consent: { ...consent } });
 }
 
-/** Revocation is also subject-only and removes all visibility, including malformed records. */
-export function revokeFamilyConsent(evidence, actorId, revokedAt) {
-  if (!validEvidence(evidence)) return fail("evidence_invalid");
-  if (actorId !== evidence.subjectId) return fail("consent_forbidden");
-  if (!isText(revokedAt)) return fail("consent_invalid");
-  return freeze({ ok: true, evidence: { ...evidence, version: evidence.version + 1, updatedAt: revokedAt, consents: [] } });
+/** Revocation is subject-only and returns an independent revoked Consent record. */
+export function revokeFamilyConsent(evidence, actorId, consent) {
+  if (!validEvidence(evidence) || !validConsent(consent)) return fail("consent_invalid");
+  if (actorId !== evidence.subjectMemberId || consent.subjectMemberId !== evidence.subjectMemberId || consent.evidenceId !== evidence.id) return fail("consent_forbidden");
+  if (consent.status !== "revoked") return fail("consent_invalid");
+  return freeze({ ok: true, consent: { ...consent } });
 }
 
-function hasCurrentConsent(evidence) {
-  return evidence.kind === "shareable_fact"
-    && Array.isArray(evidence.consents)
-    && evidence.consents.some((consent) => validConsent(consent, evidence));
+function projectMetadata(metadata) {
+  if (!isRecord(metadata)) return freeze({});
+  const result = {};
+  for (const key of AUDIT_METADATA_KEYS) {
+    const value = metadata[key];
+    if (["string", "number", "boolean"].includes(typeof value) || value === null) result[key] = value;
+  }
+  return freeze(result);
 }
 
-/**
- * Projects a responsibility snapshot for one active family member. The result is a
- * presentation projection, not production authentication or authorization evidence.
- */
-export function projectResponsibilityState(state, activeMemberId) {
-  const viewer = activeMember(state, activeMemberId);
-  if (!viewer) return fail("viewer_unauthorized");
-  const evidence = Array.isArray(state.evidence) ? state.evidence.filter(validEvidence) : [];
-  const privateEvidence = evidence
-    .filter((item) => item.familyId === viewer.familyId && (item.subjectId === viewer.id || item.creatorId === viewer.id))
-    .map(safePrivateEvidence);
-  const familyEvidence = evidence
-    .filter((item) => item.familyId === viewer.familyId && hasCurrentConsent(item))
-    .map(safeFact);
-  const domains = Array.isArray(state.domains) ? state.domains
-    .filter((domain) => isRecord(domain) && domain.familyId === viewer.familyId && isText(domain.id) && isText(domain.accountableOwnerId))
-    .map((domain) => freeze({ id: domain.id, accountableOwnerId: domain.accountableOwnerId, version: Number.isSafeInteger(domain.version) ? domain.version : 0, status: isText(domain.status) ? domain.status : "unknown" })) : [];
-  return freeze({ ok: true, projection: { viewer: { id: viewer.id, role: viewer.role }, domains, privateEvidence, familyEvidence, audit: projectAudit(state.audit, viewer.familyId) } });
-}
-
-/** Recursively rebuilds audit values from a closed whitelist, never copying content-bearing keys. */
+/** Rebuilds AuditLogEntry values from exact contract fields and a scalar metadata allowlist. */
 export function projectAudit(audit, familyId) {
   if (!Array.isArray(audit) || !isText(familyId)) return freeze([]);
-  return freeze(audit.filter((entry) => isRecord(entry) && entry.familyId === familyId).map((entry) => ({
-    id: isText(entry.id) ? entry.id : "",
-    familyId: entry.familyId,
-    status: isText(entry.status) ? entry.status : "unknown",
-    version: Number.isSafeInteger(entry.version) ? entry.version : 0,
-    createdAt: isText(entry.createdAt) ? entry.createdAt : "",
-    updatedAt: isText(entry.updatedAt) ? entry.updatedAt : "",
-  })));
+  return freeze(audit.flatMap((entry) => {
+    if (!isRecord(entry) || entry.familyId !== familyId || !isText(entry.id) || !isText(entry.actorId) || !isText(entry.action)
+      || !AUDIT_ENTITY_TYPES.has(entry.entityType) || !isText(entry.entityId) || !isText(entry.occurredAt)) return [];
+    return [{ id: entry.id, familyId: entry.familyId, actorId: entry.actorId, action: entry.action, entityType: entry.entityType, entityId: entry.entityId, occurredAt: entry.occurredAt, metadata: projectMetadata(entry.metadata) }];
+  }));
+}
+
+/** Role is presentation metadata; active family membership, not role, defines this projection boundary. */
+export function projectResponsibilityState(state, activeMemberId) {
+  if (!isRecord(state) || !Array.isArray(state.members) || !isText(activeMemberId)) return fail("viewer_unauthorized");
+  const viewer = state.members.find((member) => validMember(member) && member.id === activeMemberId);
+  if (!viewer) return fail("viewer_unauthorized");
+  const evidence = Array.isArray(state.evidence) ? state.evidence.filter(validEvidence) : [];
+  const consents = Array.isArray(state.consents) ? state.consents.filter(validConsent) : [];
+  const privateEvidence = evidence.filter((item) => item.familyId === viewer.familyId && (item.subjectMemberId === viewer.id || item.createdByMemberId === viewer.id)).map(safeEvidence);
+  const familyEvidence = evidence.filter((item) => item.familyId === viewer.familyId && item.kind === "shareable_fact" && hasGrantedConsent(item, consents)).map(safeEvidence);
+  return freeze({ ok: true, projection: { viewer: { id: viewer.id, role: isText(viewer.role) ? viewer.role : "member" }, privateEvidence, familyEvidence, audit: projectAudit(state.audit, viewer.familyId) } });
 }

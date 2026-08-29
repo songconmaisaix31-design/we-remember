@@ -2,51 +2,52 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createEvidence, grantFamilyConsent, projectAudit, projectResponsibilityState, revokeFamilyConsent } from "./projection.mjs";
 
-const stamp = "2026-08-30T00:00:00.000Z";
 const secret = "FORBIDDEN_PRIVATE_SENTINEL";
-const base = (kind = "shareable_fact") => ({ id: "ev-1", familyId: "family-a", subjectId: "mother", creatorId: "mother", kind, version: 1, createdAt: stamp, updatedAt: stamp, fact: "Grandmother has a follow-up visit", expression: secret, rawText: secret, prompt: secret, metadata: { nested: secret } });
-const state = (evidence) => ({
-  members: [{ id: "mother", familyId: "family-a", role: "mother", status: "active" }, { id: "father", familyId: "family-a", role: "father", status: "active" }, { id: "grandmother", familyId: "family-a", role: "grandmother", status: "active" }, { id: "outsider", familyId: "family-b", role: "father", status: "active" }],
-  evidence, domains: [{ id: "domain-1", familyId: "family-a", accountableOwnerId: "mother", version: 2, status: "active", notes: secret }],
-  audit: [{ id: "audit-1", familyId: "family-a", status: "accepted", version: 2, createdAt: stamp, updatedAt: stamp, rawText: secret, nested: { prompt: secret, payload: { content: secret } } }],
+const evidenceKeys = ["content", "createdByMemberId", "familyId", "id", "kind", "subjectMemberId", "version", "visibility"];
+const consentKeys = ["evidenceId", "grantedVisibility", "id", "status", "subjectMemberId", "version"];
+const evidence = (kind = "shareable_fact", id = "evidence-1") => ({ id, familyId: "family-a", subjectMemberId: "mother", createdByMemberId: "mother", kind, content: kind === "shareable_fact" ? "Grandmother has a follow-up visit" : secret, version: 1 });
+const consent = (status = "granted", id = "consent-1") => ({ id, evidenceId: "evidence-1", subjectMemberId: "mother", grantedVisibility: "family", status, version: 1 });
+const state = (items, consents = []) => ({
+  members: [{ id: "mother", familyId: "family-a", role: "mother", status: "active" }, { id: "father", familyId: "family-a", role: "father", status: "active" }, { id: "grandmother", familyId: "family-a", role: "grandmother", status: "active" }, { id: "outsider", familyId: "family-b", role: "father", status: "active" }], evidence: items, consents,
+  audit: [{ id: "audit-1", familyId: "family-a", actorId: "mother", action: "handover.accepted", entityType: "handover", entityId: "handover-1", occurredAt: "2026-08-30T00:00:00.000Z", metadata: { domainId: "domain-1", status: "accepted", version: 2, nested: { content: secret }, rawText: secret, prompt: secret } }],
 });
 
-test("evidence is private by default and only its subject can grant consent", () => {
-  const created = createEvidence(base());
-  assert.equal(created.ok, true);
-  assert.equal(created.evidence.consents.length, 0);
-  assert.equal(grantFamilyConsent(created.evidence, "father", stamp).error.code, "consent_forbidden");
-  assert.equal(grantFamilyConsent(created.evidence, "mother", stamp).ok, true);
-  assert.equal(grantFamilyConsent(createEvidence(base("private_expression")).evidence, "mother", stamp).error.code, "consent_not_shareable");
+test("Evidence is exact-contract and private by default; Consent is separate", () => {
+  const created = createEvidence(evidence());
+  assert.equal(created.ok, true); assert.deepEqual(Object.keys(created.evidence).sort(), evidenceKeys); assert.equal(created.evidence.visibility, "private"); assert.equal("consents" in created.evidence, false);
+  const granted = grantFamilyConsent(created.evidence, "mother", consent());
+  assert.equal(granted.ok, true); assert.deepEqual(Object.keys(granted.consent).sort(), consentKeys); assert.equal(grantFamilyConsent(created.evidence, "father", consent()).error.code, "consent_forbidden");
 });
 
-test("revocation removes family visibility and returned records are immutable", () => {
-  const granted = grantFamilyConsent(createEvidence(base()).evidence, "mother", stamp).evidence;
-  const revoked = revokeFamilyConsent(granted, "mother", stamp).evidence;
-  assert.equal(projectResponsibilityState(state([revoked]), "father").projection.familyEvidence.length, 0);
-  assert.throws(() => { revoked.consents.push({}); }, TypeError);
+test("all three evidence kinds are private unless an eligible fact has separate consent", () => {
+  const fact = createEvidence(evidence()).evidence;
+  const expression = createEvidence(evidence("private_expression", "expression-1")).evidence;
+  const request = createEvidence(evidence("responsibility_request", "request-1")).evidence;
+  const requestConsent = { ...consent("granted", "consent-request"), evidenceId: request.id };
+  const snapshot = state([fact, expression, request], [consent(), requestConsent]);
+  assert.deepEqual(projectResponsibilityState(snapshot, "father").projection.familyEvidence.map((item) => item.kind), ["shareable_fact"]);
+  assert.equal(projectResponsibilityState(snapshot, "mother").projection.privateEvidence.length, 3);
 });
 
-test("three family perspectives preserve private access and limit family access", () => {
-  const granted = grantFamilyConsent(createEvidence(base()).evidence, "mother", stamp).evidence;
-  const snapshot = state([granted]);
-  assert.equal(projectResponsibilityState(snapshot, "mother").projection.privateEvidence.length, 1);
-  assert.equal(projectResponsibilityState(snapshot, "father").projection.privateEvidence.length, 0);
-  assert.equal(projectResponsibilityState(snapshot, "grandmother").projection.familyEvidence.length, 1);
+test("revoked and malformed consent fail closed", () => {
+  const fact = createEvidence(evidence()).evidence;
+  const revoked = revokeFamilyConsent(fact, "mother", consent("revoked")).consent;
+  const malformed = { ...consent(), evidenceId: "wrong-evidence" };
+  assert.equal(projectResponsibilityState(state([fact], [revoked]), "father").projection.familyEvidence.length, 0);
+  assert.equal(projectResponsibilityState(state([fact], [malformed]), "father").projection.familyEvidence.length, 0);
+  assert.equal(projectResponsibilityState(state([fact], [consent(), { ...consent("revoked", "consent-2"), version: 2 }]), "father").projection.familyEvidence.length, 0);
+});
+
+test("mother, father, grandmother projections retain roles only as presentation metadata", () => {
+  const snapshot = state([createEvidence(evidence()).evidence], [consent()]);
+  for (const [id, role] of [["mother", "mother"], ["father", "father"], ["grandmother", "grandmother"]]) assert.equal(projectResponsibilityState(snapshot, id).projection.viewer.role, role);
   assert.equal(projectResponsibilityState(snapshot, "outsider").projection.familyEvidence.length, 0);
 });
 
-test("malformed consent and private expressions fail closed", () => {
-  const expression = createEvidence(base("private_expression")).evidence;
-  const malformed = { ...createEvidence(base()).evidence, consents: [{ status: "granted", evidenceId: "ev-1", familyId: "family-a", subjectId: "mother", version: 2, grantedAt: stamp, rawText: secret }] };
-  assert.equal(projectResponsibilityState(state([expression, malformed]), "father").projection.familyEvidence.length, 0);
-});
-
-test("family and audit projections exclude nested leak attempts and sentinel strings", () => {
-  const granted = grantFamilyConsent(createEvidence(base()).evidence, "mother", stamp).evidence;
-  const projection = projectResponsibilityState(state([granted]), "father").projection;
-  const audit = projectAudit(state([]).audit, "family-a");
-  assert.equal(JSON.stringify(projection).includes(secret), false);
-  assert.equal(JSON.stringify(audit).includes(secret), false);
-  assert.deepEqual(Object.keys(audit[0]).sort(), ["createdAt", "familyId", "id", "status", "updatedAt", "version"]);
+test("audit uses exact fields and its metadata is a scalar closed allowlist without sentinel leaks", () => {
+  const projection = projectResponsibilityState(state([createEvidence(evidence()).evidence], [consent()]), "father").projection;
+  const audit = projectAudit(state([], []).audit, "family-a");
+  assert.deepEqual(Object.keys(audit[0]).sort(), ["action", "actorId", "entityId", "entityType", "familyId", "id", "metadata", "occurredAt"]);
+  assert.deepEqual(audit[0].metadata, { domainId: "domain-1", status: "accepted", version: 2 }); assert.equal(JSON.stringify(projection).includes(secret), false); assert.equal(JSON.stringify(audit).includes(secret), false); assert.throws(() => { audit[0].metadata.status = "changed"; }, TypeError);
+  assert.throws(() => { projection.familyEvidence.push({}); }, TypeError);
 });
