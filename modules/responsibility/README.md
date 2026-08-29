@@ -44,6 +44,24 @@ npm run check
 npm run demo
 ```
 
+## Run the integrated demo
+
+The local server uses only Node.js built-ins, serves the existing `app/` UI, and exposes both a process-local API for step-by-step smoke tests and a stateless API used by the Vercel demo.
+
+```powershell
+cd modules/responsibility
+npm start
+```
+
+Open `http://127.0.0.1:4173`. The page calls `GET/POST /api/responsibility`. Every stateless request reconstructs the bounded golden Fixture and runs real Store/Service commands inside that request; it does not assume a serverless process will preserve memory. The local smoke API remains available at:
+
+- `GET /api/demo/state?actor=mother|father|grandmother`
+- `POST /api/demo/analyze`
+- `POST /api/demo/action`
+- `POST /api/demo/reset`
+
+The Vercel function is `api/responsibility.mjs`. From the repository root, `vercel --prod` deploys the static app and API according to `vercel.json`; domain attachment is a separate Vercel/DNS operation.
+
 The golden integration test and runnable demo use the actual `createResponsibilityStore` plus `createResponsibilityService` path. They cover private fact/expression/request separation, consented family projection, `pending_info`, `pending_ack`, unchanged-owner failures, accepted owner and reminder migration, an old-owner notice, privacy-safe audit projection, Store-level replay, conflict, decline, expiry, and todo completion.
 
 ## Evidence boundary
