@@ -142,32 +142,11 @@ button { color: inherit; }
 .suggestions button { padding: 8px 11px; color: var(--accent-dark); border: 1px solid rgba(206, 89, 70, 0.16); border-radius: 999px; background: var(--accent-soft); cursor: pointer; transition: transform 180ms ease, background 180ms ease; }
 .suggestions button:hover { transform: translateY(-2px); background: #ffd3c8; }
 
-.responsibility-demo { padding: 20px; border-radius: 24px; }
-.responsibility-demo[data-busy="true"] { opacity: .72; pointer-events: none; }
-.responsibility-demo-header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
-.responsibility-demo-header h2 { margin: 0; font-family: Georgia, "Songti SC", serif; font-size: 22px; font-weight: 500; }
-.responsibility-demo-header > div > p:last-child { max-width: 500px; margin: 7px 0 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
-.responsibility-demo-header label { display: grid; flex: 0 0 120px; gap: 6px; color: var(--muted); font-size: 9px; font-weight: 750; }
-.responsibility-demo-header select { min-height: 38px; padding: 0 10px; color: var(--ink); border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.8); }
-.responsibility-status-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin-top: 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--line); }
-.responsibility-status-grid > div { min-width: 0; padding: 12px; background: rgba(255,255,255,.68); }
-.responsibility-status-grid span, .responsibility-status-grid strong { display: block; }
-.responsibility-status-grid span { color: var(--muted); font-size: 9px; }
-.responsibility-status-grid strong { margin-top: 5px; overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.responsibility-notice { margin: 12px 0 0; padding: 9px 11px; color: #755c32; border-radius: 12px; background: #fae7bd; font-size: 10px; line-height: 1.45; }
-.responsibility-flow { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin-top: 12px; color: var(--muted); font-size: 9px; }
-.responsibility-flow span { padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,.72); }
-.responsibility-flow i { color: var(--accent-dark); font-style: normal; }
-.responsibility-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.responsibility-actions button { min-height: 36px; padding: 0 11px; color: white; border: 0; border-radius: 12px; background: var(--ink); cursor: pointer; font-size: 10px; font-weight: 750; }
-.responsibility-actions button:hover { background: var(--accent-dark); }
-.responsibility-actions button.quiet { color: var(--muted); border: 1px solid var(--line); background: transparent; }
 .responsibility-suggestion-card { width: min(610px, calc(100vw - 48px)); margin-top: 4px; padding: 17px; border: 1px solid rgba(255,255,255,.85); border-radius: 22px; background: rgba(255,253,250,.9); box-shadow: var(--shadow); }
 .responsibility-suggestion-card h3 { margin: 0; font-size: 17px; }
 .responsibility-suggestion-card dl { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px 12px; margin: 14px 0; font-size: 10px; }
 .responsibility-suggestion-card dt { color: var(--muted); }
 .responsibility-suggestion-card dd { margin: 0; line-height: 1.5; }
-.responsibility-suggestion-card button { min-height: 38px; padding: 0 13px; color: white; border: 0; border-radius: 12px; background: var(--accent-dark); cursor: pointer; font-size: 11px; font-weight: 750; }
 
 .draft-card { width: min(610px, calc(100vw - 48px)); margin-top: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,.85); border-radius: 22px; background: rgba(255,253,250,.9); box-shadow: var(--shadow); }
 .draft-top { display: flex; justify-content: space-between; gap: 16px; padding: 18px; border-bottom: 1px solid var(--line); }
@@ -418,10 +397,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   .message-body { padding: 13px 14px; }
   .message-body p { font-size: 13px; }
   .suggestions { display: grid; }
-  .responsibility-demo-header { display: grid; }
-  .responsibility-demo-header label { width: 100%; }
-  .responsibility-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .responsibility-actions { display: grid; grid-template-columns: 1fr; }
   .responsibility-suggestion-card { width: calc(100vw - 56px); }
   .draft-card { width: calc(100vw - 56px); }
   .draft-top { padding: 15px; }

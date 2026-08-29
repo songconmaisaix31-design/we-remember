@@ -21,37 +21,14 @@ const scheduleTotalCount = document.querySelector("#schedule-total-count");
 const scheduleTodayCount = document.querySelector("#schedule-today-count");
 const scheduleNotificationCount = document.querySelector("#schedule-notification-count");
 const receiptTotalCount = document.querySelector("#receipt-total-count");
-const responsibilityDemo = document.querySelector("#responsibility-demo");
-const responsibilityRole = document.querySelector("#responsibility-role");
-const responsibilityOwner = document.querySelector("#responsibility-owner");
-const responsibilityHandoverStatus = document.querySelector("#responsibility-handover-status");
-const responsibilityTodoOwner = document.querySelector("#responsibility-todo-owner");
-const responsibilityReminderOwner = document.querySelector("#responsibility-reminder-owner");
-const responsibilityNotice = document.querySelector("#responsibility-notice");
-const profileAvatar = document.querySelector("#profile-avatar");
-const spaceAvatar = document.querySelector("#space-avatar");
-const profileName = document.querySelector("#profile-name");
 let activeView = "agent";
 let selectedMember = "all";
 
-const responsibilityRoles = Object.freeze({
-  mother: { label: "妈妈", avatar: "assets/family-work/mother/work.svg" },
-  father: { label: "爸爸", avatar: "assets/family-work/father/family.svg" },
-  grandmother: { label: "奶奶", avatar: "assets/family-work/grandmother/family.svg" },
+const responsibilityMemberLabels = Object.freeze({
+  mother: "妈妈",
+  father: "爸爸",
+  grandmother: "奶奶",
 });
-const responsibilityStatusLabels = Object.freeze({
-  accepted: "已接受",
-  declined: "已拒绝",
-  draft: "草稿",
-  pending_ack: "等待爸爸确认",
-  pending_info: "等待补充信息",
-});
-const defaultResponsibilityText = "奶奶复诊的安排一直由我负责，我有点撑不住了，想请爸爸完整接手";
-const responsibilityState = {
-  action: "reset",
-  data: null,
-  text: defaultResponsibilityText,
-};
 
 const members = Object.freeze([
   { name: "我", role: "self", avatar: "assets/family-work/mother/work.svg", availability: "在线", route: "应用内演示", configured: true },
@@ -152,100 +129,17 @@ const showToast = (message) => {
   showToast.timer = window.setTimeout(() => { toast.hidden = true; }, 3600);
 };
 
-const roleLabel = (memberId) => responsibilityRoles[memberId]?.label ?? memberId ?? "—";
+const roleLabel = (memberId) => responsibilityMemberLabels[memberId] ?? memberId ?? "—";
 
-const updateResponsibilityIdentity = () => {
-  const role = responsibilityRoles[responsibilityRole.value];
-  if (!role) return;
-  profileName.textContent = `${role.label}视角`;
-  profileAvatar.src = role.avatar;
-  profileAvatar.alt = `${role.label}头像`;
-  spaceAvatar.src = role.avatar;
-  document.querySelectorAll(".responsibility-suggestion-message").forEach((message) => {
-    message.hidden = responsibilityRole.value !== "mother";
+const requestResponsibilityAnalysis = async (text) => {
+  const response = await fetch("/api/responsibility", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "analyze", actorId: "mother", text }),
   });
-};
-
-const responsibilityNoticeCopy = (data) => {
-  const { actorId, flow, summary } = data;
-  if (flow === "accepted" && actorId === "mother" && summary.oldOwnerNotices > 0) {
-    return "交接已接受：你不再接收这块责任的默认行动提醒。";
-  }
-  if (flow === "accepted" && actorId === "father") return "你已接受整块责任，未来行动提醒已迁移给你。";
-  if (flow === "accepted_todo_completed") return "下一步 Todo 已完成，对应提醒已停止。";
-  if (flow === "declined") return "爸爸拒绝了提案，负责人和默认提醒仍是妈妈。";
-  if (flow === "analyzed") return "AI 只生成责任建议；责任、提醒和共享范围尚未改变。";
-  return "责任仍由妈妈负责。Demo 使用固定 Fixture，不保存家庭数据或发送外部通知。";
-};
-
-const renderResponsibilityState = (data) => {
-  responsibilityState.data = data;
-  const { summary } = data;
-  responsibilityOwner.textContent = roleLabel(summary.accountableOwnerId);
-  responsibilityHandoverStatus.textContent = responsibilityStatusLabels[summary.handoverStatus] ?? summary.handoverStatus ?? "—";
-  responsibilityTodoOwner.textContent = summary.todoStatus === "completed"
-    ? "已完成"
-    : roleLabel(summary.todoAssigneeId);
-  responsibilityReminderOwner.textContent = summary.reminderRecipientId
-    ? roleLabel(summary.reminderRecipientId)
-    : "当前视角无待提醒";
-  responsibilityNotice.textContent = responsibilityNoticeCopy(data);
-  responsibilityDemo.dataset.flow = data.flow;
-  updateResponsibilityIdentity();
-};
-
-const requestResponsibility = async (action, actorId, text = responsibilityState.text) => {
-  const options = action === "read"
-    ? undefined
-    : {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(action === "reset"
-        ? { action, actorId }
-        : { action, actorId, text }),
-    };
-  const path = action === "read"
-    ? `/api/responsibility?actor=${encodeURIComponent(actorId)}`
-    : "/api/responsibility";
-  const response = await fetch(path, options);
   const payload = await response.json();
   if (!response.ok || !payload.ok) throw new Error(payload.error?.code ?? "request_failed");
   return payload;
-};
-
-const executeResponsibilityAction = async (action, text = responsibilityState.text) => {
-  responsibilityDemo.dataset.busy = "true";
-  try {
-    const actorId = responsibilityRole.value;
-    const payload = await requestResponsibility(action, actorId, text);
-    responsibilityState.action = action;
-    responsibilityState.text = text;
-    renderResponsibilityState(payload);
-    showToast(action === "reset" ? "责任交接演示已重置" : "责任规则引擎已返回最新视角");
-    return payload;
-  } catch {
-    responsibilityNotice.textContent = "演示服务未连接。请通过项目启动命令访问本页。";
-    showToast("责任交接 API 暂时不可用");
-    return null;
-  } finally {
-    responsibilityDemo.dataset.busy = "false";
-  }
-};
-
-const refreshResponsibilityRole = async () => {
-  responsibilityDemo.dataset.busy = "true";
-  try {
-    const actorId = responsibilityRole.value;
-    const action = responsibilityState.action === "reset"
-      || (responsibilityState.action === "analyze" && actorId !== "mother")
-      ? "read"
-      : responsibilityState.action;
-    renderResponsibilityState(await requestResponsibility(action, actorId));
-  } catch {
-    responsibilityNotice.textContent = "无法加载该成员视角；当前页面不会猜测或显示其他人的私人内容。";
-  } finally {
-    responsibilityDemo.dataset.busy = "false";
-  }
 };
 
 const appendResponsibilitySuggestion = (payload) => {
@@ -256,7 +150,7 @@ const appendResponsibilitySuggestion = (payload) => {
   wrapper.innerHTML = `
     <span class="agent-orb" aria-hidden="true">✦</span>
     <div>
-      <div class="message-body"><strong>责任 Agent</strong><p>我区分了可共享事实、私人表达和责任诉求。以下私人表达只在妈妈视角显示。</p></div>
+      <div class="message-body"><strong>责任 Agent</strong><p>我整理了一份责任建议。私人表达仅对你可见，正式交接仍需接手人确认。</p></div>
       <article class="responsibility-suggestion-card" aria-label="责任交接建议">
         <h3>${escapeHtml(suggestion.domainSuggestion)}</h3>
         <dl>
@@ -265,20 +159,17 @@ const appendResponsibilitySuggestion = (payload) => {
           <dt>责任诉求</dt><dd>${escapeHtml(suggestion.responsibilityRequests.join("；"))}</dd>
           <dt>建议接手人</dt><dd>${escapeHtml(roleLabel(suggestion.proposedOwnerId))}</dd>
         </dl>
-        <button type="button" data-run-golden-handover>生成提案并演示双方接受</button>
       </article>
     </div>`;
-  wrapper.querySelector("[data-run-golden-handover]").addEventListener("click", () => {
-    executeResponsibilityAction("goldenFlow");
-  });
   feed.append(wrapper);
 };
 
 const analyzeResponsibilityMessage = async (text) => {
-  responsibilityRole.value = "mother";
-  updateResponsibilityIdentity();
-  const payload = await executeResponsibilityAction("analyze", text);
-  if (payload) appendResponsibilitySuggestion(payload);
+  try {
+    appendResponsibilitySuggestion(await requestResponsibilityAnalysis(text));
+  } catch {
+    showToast("责任建议暂时无法生成，原始内容没有进入家庭共享层");
+  }
 };
 
 const autosize = () => {
@@ -411,15 +302,6 @@ input.addEventListener("keydown", (event) => {
 
 document.querySelectorAll("[data-prompt]").forEach((button) => {
   button.addEventListener("click", () => sendMessage(button.dataset.prompt));
-});
-
-responsibilityRole.addEventListener("change", () => {
-  updateResponsibilityIdentity();
-  refreshResponsibilityRole();
-});
-
-document.querySelectorAll("[data-responsibility-action]").forEach((button) => {
-  button.addEventListener("click", () => executeResponsibilityAction(button.dataset.responsibilityAction));
 });
 
 const finishVoice = () => {
@@ -579,4 +461,3 @@ document.body.dataset.sessionStatus = "ready";
 renderSharedState();
 setActiveView("agent", { focusHeading: false });
 autosize();
-refreshResponsibilityRole();
