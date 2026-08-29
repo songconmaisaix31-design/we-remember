@@ -18,6 +18,7 @@ import {
 } from "./reminders/index.mjs";
 import { analyzeResponsibility } from "./privacy/ai/responsibility-suggestion.mjs";
 import {
+  getNextConsentVersion,
   grantFamilyConsent,
   projectResponsibilityState,
   revokeFamilyConsent,
@@ -272,6 +273,9 @@ function applyConsent(state, command, reducer) {
     : undefined;
   const result = reducer(evidence, command?.actorId, command?.consent);
   if (!result.ok) return unchanged(state, result);
+  if (result.consent.version !== getNextConsentVersion(state?.consents, result.consent)) {
+    return denied(state, "version_conflict");
+  }
   return Object.freeze({
     ...result,
     nextState: nextSnapshot(state, {
