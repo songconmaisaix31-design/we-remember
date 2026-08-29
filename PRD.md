@@ -84,6 +84,28 @@ Connection acceptance criteria:
 - External identities and conversations remain unbound until an authenticated, short-lived pairing flow succeeds.
 - Platform acknowledgement, application acceptance, provider delivery, reading, and human confirmation are displayed as separate states.
 
+## Complete application shell
+
+The signed-in prototype has four destinations that share one family context and one visual system:
+
+- Agent: the existing conversation-first scheduling flow and confirmation card.
+- Family schedule: a week-oriented view of confirmed and fixture events, with day selection, member filtering, and a clear route back to the Agent for creation.
+- Family and notifications: a member roster, per-person notification routes, and truthful delivery receipts. Demo controls may change presentation state for the current session only; they never claim provider delivery or authorization.
+- Connection center: the existing channel capability and installation-boundary view.
+
+Cross-page acceptance criteria:
+
+- Every desktop and mobile navigation item opens a distinct, titled destination; no primary navigation item is a placeholder.
+- Agent confirmation updates the shared event collection, the family schedule, the today summary, and recipient-specific notification receipts without a reload.
+- The family schedule supports selecting a day and filtering by family member without hiding the currently selected state from assistive technology.
+- The family and notifications page distinguishes member availability, configured demo route, queued/accepted/failed delivery evidence, and actual human acknowledgement.
+- Empty, filtered, pending, and confirmed states have explicit copy and a next action.
+- Desktop, tablet, and 390 px mobile layouts use the same typography, surface, spacing, and interaction tokens; mobile keeps all primary actions reachable above its fixed navigation.
+- Navigation, dialogs, filters, and controls are keyboard operable with visible focus treatment and appropriate pressed/current semantics.
+- The prototype labels all data and preference changes as local demo state and never implies production persistence, authorization, provider delivery, reading, or task completion.
+
+Out of scope for this delivery: backend persistence, real member administration, provider credentials, real notification sending, calendar synchronization, and production authentication.
+
 ## Physical robot notification output
 
 An AgiBot Expedition A3 can act as an optional shared-space audio output after a notification has already passed product authorization and confirmation. It is not an identity provider, Agent, schedule authority, consent engine, or source of completion truth.

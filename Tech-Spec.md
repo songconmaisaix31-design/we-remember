@@ -52,6 +52,25 @@ idle -> listening -> transcribing -> draft_ready -> confirmed
 - `confirmed` appends one event and creates notification receipts.
 - The prototype keeps state in memory and resets on reload.
 
+## Application view and shared demo state
+
+The signed-in shell uses one client-side state owner in `app/app.js` for the active view, selected schedule day, selected member filter, confirmed events, and notification receipts. Views are rendered into the existing semantic application shell; the prototype does not add a router, framework, package, or duplicate per-page state store.
+
+```text
+agent --confirm draft--> events + receipts
+  |                         |       |
+  +--> family schedule <----+       |
+  +--> family and notifications <---+
+  `--> connection center dialog
+```
+
+- Desktop and mobile navigation call the same `setActiveView` boundary and expose the active destination with `aria-current="page"`.
+- Fixture events and newly confirmed events use one normalized in-memory shape. Filters derive visible rows and counts without mutating the collection.
+- Notification preferences are explicitly session-local demo presentation state. They do not write credentials, contact identifiers, or authorization claims to browser storage.
+- Notification receipts keep delivery evidence separate from human acknowledgement. A queued or locally accepted receipt is never rendered as read, understood, or completed.
+- The existing composer remains the only creation path. The schedule page routes people back to the Agent instead of introducing a second event form.
+- Responsive layout reuses the existing surface, typography, spacing, focus, and reduced-motion tokens. New views must not create an additional visual system or append a competing legacy override layer.
+
 ## Voice behavior
 
 When `SpeechRecognition` or `webkitSpeechRecognition` exists:
@@ -123,5 +142,7 @@ python -m http.server 4173
 ```
 
 Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome at 1440×1000 and 390×844, including overflow metrics and screenshots.
+
+Also verify the Agent, family schedule, family and notifications, and connection-center destinations at 1440×1000, 820×1180, and 390×844. Confirmation must update schedule counts and notification receipts across views, filters must expose their selected state, and every mobile primary action must remain reachable above the fixed navigation.
 
 Also verify invalid-key failure, the public demo-key match, all 12 static SVG avatars, the absence of transition SVGs, a representative valid/invalid upload, session restoration, sign-out, reduced motion, and the absence of work-workspace controls.
