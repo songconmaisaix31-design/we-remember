@@ -565,3 +565,58 @@ test("returns stable errors before dependencies can observe invalid caller or re
     { name: "TypeError", message: "Invalid responsibility service dependencies." },
   );
 });
+
+test("bounds revise missingFields before a port or Store can observe the command", async () => {
+  const calls = [];
+  const initialState = responsibilityState({ handoverStatus: "pending_info" });
+  const store = createFakeStore(initialState, calls);
+  let received;
+  const ports = createPorts(calls, {
+    reviseHandover(state, command) {
+      calls.push({ name: "port.reviseHandover" });
+      received = command;
+      return { ok: true, nextState: state };
+    },
+  });
+  const service = createResponsibilityService({ store, ports });
+  const missingFieldNames = (count) => Array.from({ length: count }, (_, index) => `field_${index}`);
+
+  const overLimit = await service.revise(caller, {
+    handoverId: "handover-one",
+    expectedVersion: 1,
+    patch: { missingFields: missingFieldNames(257) },
+    idempotencyKey: "revise-over-limit",
+  });
+  assert.equal(overLimit.error.code, "invalid_request");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(store.inspect(), { state: freezeDeep(clone(initialState)), revision: 1 });
+
+  const sparse = await service.revise(caller, {
+    handoverId: "handover-one",
+    expectedVersion: 1,
+    patch: { missingFields: new Array(1) },
+    idempotencyKey: "revise-sparse",
+  });
+  assert.equal(sparse.error.code, "invalid_request");
+  assert.deepEqual(calls, []);
+  assert.deepEqual(store.inspect(), { state: freezeDeep(clone(initialState)), revision: 1 });
+
+  const atLimit = await service.revise(caller, {
+    handoverId: "handover-one",
+    expectedVersion: 1,
+    patch: { missingFields: missingFieldNames(256) },
+    idempotencyKey: "revise-at-limit",
+  });
+  assert.equal(atLimit.ok, true);
+  assert.equal(atLimit.committed, true);
+  assert.equal(atLimit.revision, 2);
+  assert.equal(received.patch.missingFields.length, 256);
+  assert.equal(Object.isFrozen(received.patch.missingFields), true);
+  assert.deepEqual(calls.map(({ name }) => name), [
+    "store.readSnapshot",
+    "store.currentRevision",
+    "store.readSnapshot",
+    "port.reviseHandover",
+    "store.applyResult",
+  ]);
+});

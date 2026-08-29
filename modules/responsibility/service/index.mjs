@@ -39,6 +39,7 @@ const SAFE_ERROR_CODES = new Set([
   "viewer_unauthorized",
 ]);
 const MAX_IDENTIFIER_LENGTH = 128;
+const MAX_ARRAY_LENGTH = 256;
 const SAFE_FIELD_NAME = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 const ISO_INSTANT = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?(Z|([+-])(\d{2}):(\d{2}))$/;
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -156,7 +157,8 @@ function hasClosedDataProperties(value, allowedFields, requiredFields = allowedF
 }
 
 function isDenseUniqueFieldList(value) {
-  if (!Array.isArray(value) || Reflect.ownKeys(value).length !== value.length + 1) return false;
+  if (!Array.isArray(value) || value.length > MAX_ARRAY_LENGTH
+    || Reflect.ownKeys(value).length !== value.length + 1) return false;
   for (let index = 0; index < value.length; index += 1) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     if (descriptor?.enumerable !== true || !Object.hasOwn(descriptor, "value")) return false;
