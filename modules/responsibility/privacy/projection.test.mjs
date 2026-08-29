@@ -214,6 +214,92 @@ test("derives current responsibility state and scopes reminders and notices to t
   assert.deepEqual(grandmother.notices, []);
 });
 
+test("accepted handovers require the live domain owner and acceptance version transition", () => {
+  const valid = acceptedFixture();
+  assert.deepEqual(
+    projectResponsibilityState(valid, { actorId: "mother", familyId: "family-willow" }).projection.handovers.map((item) => item.status),
+    ["accepted"],
+  );
+
+  const conflictingStates = [
+    {
+      ...valid,
+      auditLog: [],
+    },
+    {
+      ...valid,
+      domains: valid.domains.map((domain) => ({ ...domain, accountableOwnerId: "mother" })),
+    },
+    {
+      ...valid,
+      domains: valid.domains.map((domain) => ({ ...domain, version: domain.version + 1 })),
+    },
+    {
+      ...valid,
+      handovers: valid.handovers.map((handover) => ({ ...handover, expectedDomainVersion: handover.expectedDomainVersion + 1 })),
+    },
+    {
+      ...valid,
+      domains: [...valid.domains, { ...valid.domains[0] }],
+    },
+  ];
+
+  for (const snapshot of conflictingStates) {
+    const projection = projectResponsibilityState(snapshot, { actorId: "mother", familyId: "family-willow" }).projection;
+    assert.deepEqual(projection.handovers, []);
+    assert.deepEqual(projection.notices, []);
+  }
+});
+
+test("handover acceptance notices require one canonical live acceptance", () => {
+  const valid = acceptedFixture();
+  const validProjection = projectResponsibilityState(valid, { actorId: "mother", familyId: "family-willow" }).projection;
+  assert.equal(validProjection.notices.length, 1);
+
+  const withHandover = (patch) => ({
+    ...valid,
+    handovers: valid.handovers.map((handover) => ({ ...handover, ...patch })),
+  });
+  const forgedStates = [
+    withHandover({ status: "pending_ack", confirmationRequiredFromId: "father" }),
+    withHandover({ status: "declined", confirmationRequiredFromId: null }),
+    withHandover({ status: "expired", confirmationRequiredFromId: null }),
+    {
+      ...valid,
+      domains: [...valid.domains, { ...valid.domains[0], id: "domain-other" }],
+      notices: valid.notices.map((notice) => ({ ...notice, domainId: "domain-other" })),
+    },
+    {
+      ...valid,
+      notices: valid.notices.map((notice) => ({ ...notice, recipientId: "father" })),
+    },
+    {
+      ...valid,
+      notices: valid.notices.map((notice) => ({ ...notice, id: `${notice.id}:forged` })),
+    },
+    {
+      ...valid,
+      handovers: valid.handovers.map((handover) => ({ ...handover, version: handover.version + 1 })),
+    },
+    {
+      ...valid,
+      handovers: [...valid.handovers, { ...valid.handovers[0] }],
+    },
+    {
+      ...valid,
+      domains: [...valid.domains, { ...valid.domains[0] }],
+    },
+  ];
+
+  for (const [index, snapshot] of forgedStates.entries()) {
+    const viewer = index === 4 ? "father" : "mother";
+    assert.deepEqual(
+      projectResponsibilityState(snapshot, { actorId: viewer, familyId: "family-willow" }).projection.notices,
+      [],
+    );
+  }
+});
+
 test("reminder projection rejects recipients that disagree with each live source", () => {
   const snapshot = structuredClone(pendingFixture());
   snapshot.domainReviews = [{

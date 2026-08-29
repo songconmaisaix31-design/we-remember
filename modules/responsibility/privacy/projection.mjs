@@ -157,6 +157,21 @@ function uniqueFamilyRecord(values, id, familyId) {
   return value?.familyId === familyId ? value : null;
 }
 
+function acceptedHandoverMatchesLiveState(state, handover, familyId) {
+  if (handover.status !== "accepted") return true;
+  const domain = uniqueFamilyRecord(state.domains, handover.domainId, familyId);
+  const audit = Object.hasOwn(state, "auditLog") ? state.auditLog : state.audit;
+  const matchingAudits = projectAudit(audit, familyId, state)
+    .filter((entry) => entry.entityId === handover.id && entry.metadata.handoverVersion === handover.version);
+  return domain !== null
+    && handover.confirmationRequiredFromId === null
+    && isVersion(handover.expectedDomainVersion)
+    && isVersion(domain.version)
+    && domain.version === handover.expectedDomainVersion + 1
+    && domain.accountableOwnerId === handover.proposedOwnerId
+    && matchingAudits.length === 1;
+}
+
 function resolveViewer(state, viewerContext) {
   let actorId;
   let familyId;
@@ -294,7 +309,8 @@ function projectHandovers(state, familyId, domainIds) {
       || !isIdentifier(handover.domainId) || !domainIds.has(handover.domainId)
       || !isIdentifier(handover.fromOwnerId) || !uniqueMember(state.members, handover.fromOwnerId, familyId, true)
       || !isIdentifier(handover.proposedOwnerId) || !uniqueMember(state.members, handover.proposedOwnerId, familyId, true)
-      || !HANDOVER_STATUSES.has(handover.status) || !confirmerValid || !isVersion(handover.version)) return [];
+      || !HANDOVER_STATUSES.has(handover.status) || !confirmerValid || !isVersion(handover.version)
+      || !acceptedHandoverMatchesLiveState(state, handover, familyId)) return [];
     return [{
       id: handover.id,
       domainId: handover.domainId,
@@ -394,10 +410,17 @@ function projectReminders(state, viewer, domains, todos, handovers) {
 function projectNotices(state, viewer, domainIds, handoverIds) {
   if (!Array.isArray(state.notices)) return [];
   return state.notices.flatMap((notice) => {
+    const handover = isIdentifier(notice?.handoverId)
+      ? uniqueFamilyRecord(state.handovers, notice.handoverId, viewer.familyId)
+      : null;
     if (!isRecord(notice) || notice.familyId !== viewer.familyId || notice.recipientId !== viewer.id
       || !isIdentifier(notice.id) || !NOTICE_TYPES.has(notice.type)
       || !isIdentifier(notice.handoverId) || !handoverIds.has(notice.handoverId)
       || !isIdentifier(notice.domainId) || !domainIds.has(notice.domainId)
+      || !handover || handover.status !== "accepted" || handover.confirmationRequiredFromId !== null
+      || handover.fromOwnerId !== notice.recipientId || handover.domainId !== notice.domainId
+      || !acceptedHandoverMatchesLiveState(state, handover, viewer.familyId)
+      || notice.id !== `notice:${handover.id}:${handover.version}`
       || !isTimestamp(notice.createdAt)) return [];
     return [{
       id: notice.id,
