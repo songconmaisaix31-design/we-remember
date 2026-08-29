@@ -10,11 +10,14 @@
     "./model": "./model/index.mjs",
     "./privacy": "./privacy/index.mjs",
     "./service": "./service/index.mjs",
-    "./store": "./store/index.mjs"
+    "./store": "./store/index.mjs",
+    "./http": "./http/server.mjs"
   },
   "scripts": {
     "check": "node --check index.mjs && node --check fixture.mjs && node --test \"**/*.test.mjs\"",
     "demo": "node test/golden-demo.mjs",
+    "start": "node http/server.mjs",
+    "test:http": "node --test http/server.test.mjs",
     "test": "node --test \"**/*.test.mjs\""
   }
 }
