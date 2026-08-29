@@ -8,6 +8,7 @@ The prototype is a dependency-free static web application:
 - `app/styles.css`: responsive layout, tokens, transitions, and reduced-motion handling.
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
 - `app/assets/family-work/`: 12 verified static SVG avatar endpoints; transition SVGs are intentionally excluded.
+- `app/assets/brand/`: transparent SVG brand assets, including two animations and a static path-only application logo.
 - `app/index.html` direct entry: the static prototype renders the Agent shell immediately with fixed fictional family context.
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
@@ -18,6 +19,12 @@ The prototype is a dependency-free static web application:
 - `modules/robot/`: isolated TypeScript notification port, template renderer, serial coordinator, fake adapter, and A3 HTTP adapter.
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
+
+## Brand animation implementation
+
+Brand animations use only SVG geometry, `<text>`, and embedded CSS keyframes. They have no raster image, script, external stylesheet, webfont, filter, or runtime dependency. Namespaced keyframes avoid collisions when both assets are inlined on one page. The view boxes include the complete motion bounds, and no opaque background shape is present. The `mom` asset stores the approved 384-square tail-frame lettering as fixed cubic Bezier paths traced from the supplied visual reference, with high-resolution resampling and light periodic smoothing to remove raster stair-stepping without moving its optical bounds. Its alignment and glyph geometry do not depend on installed fonts, and its two outer orange `m` paths are also the stationary initial anchor. The correction asset retains its 720-by-180 system-text lockup and uses `textLength` for fixed alignment. A reduced-motion media query disables all timelines and exposes the final correct wordmark.
+
+The application does not use the looping animation as its persistent rail logo. `we-remember-logo.svg` contains only the final fixed paths. A full-screen `brand-intro` layer loads the animated asset once per page load; its CSS exit and JavaScript `animationend` cleanup remove the layer and scroll lock. Under reduced motion, JavaScript removes the layer immediately and CSS independently hides it as a fail-safe.
 
 ## Prototype entry state
 

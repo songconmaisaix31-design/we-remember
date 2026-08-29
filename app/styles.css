@@ -37,6 +37,22 @@ body {
   overflow-x: hidden;
 }
 
+body.has-brand-intro { overflow: hidden; }
+
+.brand-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.76), transparent 38%),
+    #faf7f1;
+  animation: brand-intro-exit 4.8s linear both;
+}
+
+.brand-intro img { display: block; width: min(480px, 84vw); height: auto; }
+
 button, input, textarea { font: inherit; }
 button { color: inherit; }
 
@@ -86,10 +102,11 @@ button { color: inherit; }
   border-radius: var(--radius-lg);
 }
 
-.brand { display: flex; align-items: center; gap: 10px; font-weight: 750; letter-spacing: -0.02em; }
-.brand-mark { display: grid; width: 34px; height: 34px; place-items: center; color: white; border-radius: 12px; background: var(--ink); }
+.brand { display: block; width: 100%; }
+.brand-logo-viewport { display: block; width: 100%; }
+.brand-logo { display: block; width: 100%; height: auto; }
 
-.profile { display: flex; align-items: center; gap: 13px; margin: 42px 4px 32px; }
+.profile { display: flex; align-items: center; gap: 13px; margin: 24px 4px 32px; }
 .profile strong, .profile span { display: block; }
 .profile span { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .avatar-wrap { position: relative; flex: 0 0 auto; width: 62px; height: 62px; }
@@ -357,6 +374,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @keyframes enter { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 @keyframes wave { from { height: 5px; } to { height: 17px; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(12px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes brand-intro-exit {
+  0%, 72% { opacity: 1; visibility: visible; }
+  88%, 99.9% { opacity: 0; visibility: visible; }
+  100% { opacity: 0; visibility: hidden; }
+}
 
 @media (min-width: 961px) {
   .app-shell[data-active-view="agent"] .workspace { height: calc(100vh - 48px); min-height: 0; padding: 14px 0 0; overflow: hidden; }
@@ -368,8 +390,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 @media (max-width: 1120px) {
   .app-shell { grid-template-columns: 84px minmax(0, 1fr) 264px; gap: 20px; }
   .identity-rail { align-items: center; padding-inline: 11px; }
-  .brand > span:last-child, .profile > div:last-child, .nav-item > span:last-child, .rail-note { display: none; }
-  .profile { margin: 36px 0 28px; }
+  .brand { width: 62px; }
+  .brand-logo-viewport { width: 62px; }
+  .brand-logo { width: 62px; }
+  .profile > div:last-child, .nav-item > span:last-child, .rail-note { display: none; }
+  .profile { margin: 22px 0 28px; }
   .nav-item { justify-content: center; padding: 12px; }
   .people-layout { grid-template-columns: 1fr; }
 }
@@ -454,5 +479,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .brand-intro { display: none; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }

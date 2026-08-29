@@ -71,6 +71,27 @@ await send("Emulation.setEmulatedMedia", {
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
 
+const openingState = JSON.parse(await evaluate(`JSON.stringify({
+  present: document.querySelector('#brand-intro') !== null,
+  visible: document.querySelector('#brand-intro') ? getComputedStyle(document.querySelector('#brand-intro')).display !== 'none' : false,
+  animatedLogoLoaded: Boolean(document.querySelector('#brand-intro img')?.complete && document.querySelector('#brand-intro img')?.naturalWidth > 0),
+  staticLogoSource: document.querySelector('.brand-logo')?.getAttribute('src'),
+  staticLogoLoaded: Boolean(document.querySelector('.brand-logo')?.complete && document.querySelector('.brand-logo')?.naturalWidth > 0)
+})`));
+const expectsOpening = scenario !== "identity-reduced";
+if (expectsOpening !== openingState.visible || (expectsOpening && !openingState.animatedLogoLoaded)
+  || (!expectsOpening && openingState.present) || openingState.staticLogoSource !== "assets/brand/we-remember-logo.svg"
+  || !openingState.staticLogoLoaded) {
+  throw new Error(`Brand opening failed: ${JSON.stringify({ expectsOpening, openingState })}`);
+}
+if (scenario !== "opening" && scenario !== "opening-complete" && openingState.present) {
+  await evaluate("document.querySelector('#brand-intro').dispatchEvent(new AnimationEvent('animationend')); true");
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  if (await evaluate("document.querySelector('#brand-intro') !== null")) {
+    throw new Error("Brand opening did not clean up after animation completion");
+  }
+}
+
 async function assertDirectEntry() {
   const entry = JSON.parse(await evaluate(`JSON.stringify({
     appVisible: !document.querySelector('.app-shell')?.hidden,
@@ -416,8 +437,26 @@ async function assertContainerExperience(selector, minimumRadius, minimumPadding
 
 const directEntry = await assertDirectEntry();
 
-if (scenario === "identity") {
-  await captureResult({ directEntry });
+if (scenario === "opening") {
+  await captureResult({ openingState, directEntry });
+  process.exit(0);
+}
+
+if (scenario === "opening-complete") {
+  await new Promise((resolve) => setTimeout(resolve, 4300));
+  const completion = JSON.parse(await evaluate(`JSON.stringify({
+    openingRemoved: document.querySelector('#brand-intro') === null,
+    scrollLockRemoved: !document.body.classList.contains('has-brand-intro')
+  })`));
+  if (!completion.openingRemoved || !completion.scrollLockRemoved) {
+    throw new Error(`Brand opening completion failed: ${JSON.stringify(completion)}`);
+  }
+  await captureResult({ openingState, completion, directEntry });
+  process.exit(0);
+}
+
+if (scenario === "identity" || scenario === "identity-reduced") {
+  await captureResult({ openingState, directEntry });
   process.exit(0);
 }
 

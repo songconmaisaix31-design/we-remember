@@ -8,15 +8,20 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23201d1a'/%3E%3Cpath d='M14 18h8l5 25 5-18h6l5 18 5-25h8L48 48h-9l-4-14-4 14h-9z' fill='white'/%3E%3C/svg%3E" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="has-brand-intro">
+    <div class="brand-intro" id="brand-intro" aria-hidden="true">
+      <img src="assets/brand/mom-to-we-remember.svg" alt="" />
+    </div>
+
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
     <div class="app-shell" data-app-state="idle">
       <aside class="identity-rail surface" aria-label="主导航">
         <div class="brand">
-          <span class="brand-mark" aria-hidden="true">W</span>
-          <span>We Remember</span>
+          <span class="brand-logo-viewport">
+            <img class="brand-logo" src="assets/brand/we-remember-logo.svg" alt="We Remember" />
+          </span>
         </div>
 
         <div class="profile">

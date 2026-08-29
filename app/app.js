@@ -21,6 +21,7 @@ const scheduleTotalCount = document.querySelector("#schedule-total-count");
 const scheduleTodayCount = document.querySelector("#schedule-today-count");
 const scheduleNotificationCount = document.querySelector("#schedule-notification-count");
 const receiptTotalCount = document.querySelector("#receipt-total-count");
+const brandIntro = document.querySelector("#brand-intro");
 let activeView = "agent";
 let selectedMember = "all";
 
@@ -458,6 +459,15 @@ document.querySelectorAll("[data-channel-detail]").forEach((button) => {
 });
 
 document.body.dataset.sessionStatus = "ready";
+const dismissBrandIntro = () => {
+  brandIntro?.remove();
+  document.body.classList.remove("has-brand-intro");
+};
+if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  dismissBrandIntro();
+} else {
+  brandIntro?.addEventListener("animationend", dismissBrandIntro, { once: true });
+}
 renderSharedState();
 setActiveView("agent", { focusHeading: false });
 autosize();

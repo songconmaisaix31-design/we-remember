@@ -221,6 +221,8 @@ npm test
 
 证据边界：当前 release 已重新执行完整 Responsibility 套件并通过 `147/147`，同时通过 `4/4` HTTP smoke、Golden Demo 和结构/语法检查。`40/40` 是部署时的聚焦安全回归记录；黑客松时限内仍未执行完整 fuzz 和广泛对抗测试，因此不能将本表解释为生产安全认证。
 
+Brand assets live under `app/assets/brand/`. `we-remember-logo.svg` is the static, path-only application logo. `mom-to-we-remember.svg` plays once as the full-screen page opening and resolves into the same two-line wordmark with an orange `mem` center; `remomber-to-remember.svg` remains a separate typo-correction animation. Reduced-motion users skip the page opening and see the application immediately.
+
 ## 八、系统结构
 
 ```text
