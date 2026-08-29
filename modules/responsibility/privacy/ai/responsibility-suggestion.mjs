@@ -10,12 +10,13 @@ const SUGGESTION_FIELDS = [
 ];
 
 const MISSING_FIELDS = new Set(["time", "identity", "scope", "owner"]);
+const MEMBER_FIELDS = ["id", "familyId", "displayName", "kind", "version"];
 
 /**
  * Validates untrusted model output without deriving identity, authority, or ownership.
- * `members` may contain IDs or `{ id, kind }` records; only listed human IDs are allowed.
+ * Only one complete same-family human Member record can resolve a proposed owner.
  */
-export function validateResponsibilitySuggestion(candidate, { members = [] } = {}) {
+export function validateResponsibilitySuggestion(candidate, { members = [], familyId } = {}) {
   const issues = [];
   if (!isPlainObject(candidate) || !hasExactKeys(candidate, SUGGESTION_FIELDS)) {
     return invalid(["schema_invalid"]);
@@ -38,7 +39,7 @@ export function validateResponsibilitySuggestion(candidate, { members = [] } = {
     issues.push("schema_invalid");
   }
 
-  const knownHumanIds = toKnownHumanIds(members);
+  const knownHumanIds = toKnownHumanIds(members, familyId);
   if (candidate.proposedOwnerId !== null && !knownHumanIds.has(candidate.proposedOwnerId)) {
     issues.push("unresolved_owner_id");
   }
@@ -58,7 +59,7 @@ export function validateResponsibilitySuggestion(candidate, { members = [] } = {
  * Calls an injected provider at most twice. Provider failures and invalid output are
  * intentionally reduced to fixed codes so raw prompts, output, and errors cannot escape.
  */
-export async function analyzeResponsibility({ provider, input, members = [] } = {}) {
+export async function analyzeResponsibility({ provider, input, members = [], familyId } = {}) {
   if (typeof provider !== "function") return manualRequired(["provider_unavailable"], 0);
 
   const safeInput = freezeDeep(clone(input));
@@ -72,7 +73,7 @@ export async function analyzeResponsibility({ provider, input, members = [] } = 
       failureCodes.push("provider_failure");
       continue;
     }
-    const validation = validateResponsibilitySuggestion(candidate, { members: safeMembers });
+    const validation = validateResponsibilitySuggestion(candidate, { members: safeMembers, familyId });
     if (validation.ok) return freezeDeep({ status: "suggested", attempts: attempt, suggestion: validation.value });
     failureCodes.push(...validation.issues);
   }
@@ -87,14 +88,33 @@ function invalid(issues) {
   return { ok: false, issues: unique(issues) };
 }
 
-function toKnownHumanIds(members) {
+function toKnownHumanIds(members, requestedFamilyId) {
   const ids = new Set();
   if (!Array.isArray(members)) return ids;
+  const validMembers = members.filter(isCompleteMember);
+  const familyIds = new Set(validMembers.map((member) => member.familyId));
+  const familyId = requestedFamilyId === undefined
+    ? (familyIds.size === 1 ? [...familyIds][0] : null)
+    : requestedFamilyId;
+  if (!isSafeId(familyId)) return ids;
+
+  const idCounts = new Map();
   for (const member of members) {
-    if (typeof member === "string" && isSafeId(member)) ids.add(member);
-    if (isPlainObject(member) && member.kind === "human" && isSafeId(member.id)) ids.add(member.id);
+    const id = typeof member === "string" ? member : member?.id;
+    if (isSafeId(id)) idCounts.set(id, (idCounts.get(id) ?? 0) + 1);
+  }
+  for (const member of validMembers) {
+    if (member.kind === "human" && member.familyId === familyId && idCounts.get(member.id) === 1) ids.add(member.id);
   }
   return ids;
+}
+
+function isCompleteMember(value) {
+  return isPlainObject(value) && hasExactKeys(value, MEMBER_FIELDS)
+    && isSafeId(value.id) && isSafeId(value.familyId)
+    && typeof value.displayName === "string" && value.displayName.trim().length > 0
+    && (value.kind === "human" || value.kind === "agent")
+    && Number.isSafeInteger(value.version) && value.version > 0;
 }
 
 function hasExactKeys(value, expected) {
