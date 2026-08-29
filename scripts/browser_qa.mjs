@@ -61,7 +61,7 @@ await send("Emulation.setEmulatedMedia", {
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
 
-async function completeDemoSignIn(avatarId = "coral") {
+async function completeDemoSignIn(avatarId = "mother-family") {
   const signedIn = await evaluate("!document.querySelector('.app-shell').hidden");
   if (signedIn) return;
   await evaluate(`(() => {
@@ -110,11 +110,12 @@ if (scenario === "identity") {
 
   const picker = JSON.parse(await evaluate(`JSON.stringify({
     avatarCount: document.querySelectorAll('.avatar-option').length,
+    avatarImagesReady: [...document.querySelectorAll('.avatar-option img')].every(image => image.complete && image.naturalWidth > 0),
     avatarStepVisible: !document.querySelector('#avatar-step').hidden,
     viewportWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth
   })`));
-  if (picker.avatarCount !== 4 || !picker.avatarStepVisible || picker.scrollWidth > picker.viewportWidth) {
+  if (picker.avatarCount !== 12 || !picker.avatarImagesReady || !picker.avatarStepVisible || picker.scrollWidth > picker.viewportWidth) {
     throw new Error(`Avatar picker failed: ${JSON.stringify(picker)}`);
   }
 
@@ -156,7 +157,7 @@ if (scenario === "identity") {
   writeFileSync(screenshotPath, Buffer.from(pickerScreenshot.data, "base64"));
 
   await evaluate(`(() => {
-    document.querySelector('[data-avatar-id="sage"]').click();
+    document.querySelector('[data-avatar-id="grandmother-work"]').click();
     document.querySelector('#enter-family-space').click();
     return true;
   })()`);
@@ -166,9 +167,10 @@ if (scenario === "identity") {
   const restored = JSON.parse(await evaluate(`JSON.stringify({
     appVisible: !document.querySelector('.app-shell').hidden,
     avatarClass: document.querySelector('#profile-avatar').className,
+    avatarBackground: document.querySelector('#profile-avatar').style.backgroundImage,
     workSwitchAbsent: document.querySelector('#mode-switch') === null
   })`));
-  if (!restored.appVisible || !restored.avatarClass.includes("sage") || !restored.workSwitchAbsent) {
+  if (!restored.appVisible || !restored.avatarClass.includes("svg-avatar") || !restored.avatarBackground.includes("grandmother/work.svg") || !restored.workSwitchAbsent) {
     throw new Error(`Session restore failed: ${JSON.stringify(restored)}`);
   }
 

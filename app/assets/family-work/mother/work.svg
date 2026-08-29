@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Mother — Office professional</title>
+  <desc id="description">Mother shown in the work form: office professional.</desc>
+  <metadata>Working Woman by sentya irma from Noun Project, icon 7641720, Creative Commons. Mother-role artwork and animation are original derivatives.</metadata>
+  <defs>
+<mask id="apron-cut" maskUnits="userSpaceOnUse">
+      <rect width="512" height="512" fill="#fff" />
+      <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M303 278 C302 315 299 353 296 389 M352 274 C353 315 362 355 373 389 M297 389 C320 400 350 400 373 389" stroke-width="9" />
+        <path d="M316 344 C328 351 343 351 355 344" stroke-width="8" />
+      </g>
+    </mask>
+  
+  </defs>
+  <g id="state-art" data-state="work">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="person" d="M 365 74 L 381 75 L 396 82 L 404 90 L 410 101 L 412 117 L 409 127 L 402 135 L 406 152 L 406 176 L 399 199 L 394 207 L 382 218 L 369 223 L 357 224 L 352 229 L 352 246 L 382 256 L 412 270 L 427 287 L 454 332 L 486 393 L 486 406 L 481 415 L 472 421 L 358 431 L 345 430 L 336 421 L 285 422 L 284 397 L 278 394 L 270 394 L 270 360 L 265 362 L 237 394 L 207 394 L 201 360 L 252 273 L 260 264 L 273 257 L 303 249 L 303 237 L 287 223 L 275 202 L 271 189 L 269 161 L 275 135 L 287 112 L 299 100 L 321 90 L 343 90 L 352 79 Z M 290 144 L 286 160 L 287 181 L 292 198 L 299 211 L 314 224 L 327 224 L 336 220 L 349 207 L 352 195 L 364 188 L 366 184 L 364 173 L 358 181 L 349 182 L 339 172 L 307 158 Z M 401 348 L 396 388 L 427 384 Z M 334 238 L 328 241 L 320 241 L 320 254 L 331 256 L 335 253 Z" />
+    <path id="laptop-screen" d="M 24 283 L 168 284 L 173 291 L 200 437 L 47 427 L 42 419 L 20 297 L 20 287 Z" />
+    <path id="laptop-base" d="M 211 410 L 270 410 L 270 438 L 216 438 Z" />
+  </g>
+
+  </g>
+</svg>

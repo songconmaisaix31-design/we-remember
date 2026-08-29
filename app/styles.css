@@ -94,11 +94,13 @@ button { color: inherit; }
 .matched-family > i { color: var(--sage); font-size: 9px; font-style: normal; }
 .space-glyph { display: grid; width: 44px; height: 44px; place-items: center; color: #9c493a; border-radius: 14px; background: var(--accent-soft); font-size: 13px; font-weight: 800; }
 .match-boundary { margin: 12px 2px 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
-.avatar-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.avatar-library-note { margin: 12px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.avatar-options { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
 .avatar-option { display: grid; gap: 7px; place-items: center; padding: 13px 8px; border: 1px solid var(--line); border-radius: 17px; background: rgba(255, 255, 255, 0.68); cursor: pointer; transition: transform 180ms ease, border-color 180ms ease, background 180ms ease; }
 .avatar-option:hover, .avatar-option[aria-checked="true"] { transform: translateY(-2px); border-color: rgba(238, 115, 93, 0.48); background: #fff8f5; }
-.avatar-option span, .custom-avatar { display: grid; place-items: center; color: white; border-radius: 50%; font-weight: 800; background: var(--accent); background-position: center; background-size: cover; }
-.avatar-option span { width: 58px; height: 58px; font-size: 17px; }
+.avatar-option img { width: 72px; height: 72px; padding: 5px; object-fit: contain; border-radius: 16px; background: #f6f0e9; }
+.custom-avatar { display: grid; place-items: center; color: white; border-radius: 50%; font-weight: 800; background: var(--accent); background-position: center; background-repeat: no-repeat; background-size: cover; }
+.custom-avatar.svg-avatar { background-color: #f6f0e9; background-size: contain; }
 .avatar-option small { color: var(--muted); font-size: 9px; }
 .avatar-option.sage span, .custom-avatar.sage { background-color: #587267; }
 .avatar-option.blue span, .custom-avatar.blue { background-color: #527c9b; }
@@ -336,6 +338,7 @@ button { color: inherit; }
   .mobile-nav button.is-active { color: var(--accent-dark); background: var(--accent-soft); }
   .mobile-nav span { font-size: 17px; }
   .mobile-nav small { font-size: 9px; }
+  .avatar-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 520px) {

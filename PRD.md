@@ -45,7 +45,7 @@ The first application visit begins in a signed-out state. The primary path is:
 1. Enter a family key supplied by a family administrator.
 2. The server rate-limits the attempt, compares a server-side hash, and resolves exactly one active family binding.
 3. The person confirms the matched family.
-4. The person chooses a color avatar or uploads a bounded image, then enters the family timeline.
+4. The person chooses one of 12 static SVG avatars or uploads a bounded image, then enters the family timeline.
 
 The static prototype demonstrates this flow with the public fixture code `DEMO-HOME`. The fixture is not a secret and never represents production authentication. The entered key is cleared immediately after matching and is not persisted.
 
@@ -53,14 +53,14 @@ Identity acceptance criteria:
 
 - The application content is unavailable until setup is complete.
 - One valid key resolves one family; the client never offers a cross-family picker or guesses a match.
-- A person chooses a preset avatar or a local PNG, JPEG, or WebP image before entry.
+- A person chooses any of the six roles' static family or professional forms, or a local PNG, JPEG, or WebP image, before entry.
 - The local prototype persists only the fictional family ID and selected avatar for the browser session.
 - Signing out clears the local prototype session and returns to the login gate.
 - Invalid, expired, revoked, or rate-limited keys fail closed without revealing whether a family exists.
 
 ## Single family domain
 
-The product has one domain: the family's shared time, people, reminders, and connected channels. There is no work workspace, work identity, role-based avatar, or family/work switch. The selected custom avatar appears consistently in the profile and family header. Workspace expansion is out of scope until the family journey has real usage evidence.
+The product has one domain: the family's shared time, people, reminders, and connected channels. There is no work workspace, work identity, or family/work switch. Family and professional SVG forms are presentation-only avatar choices and grant no different capability. The selected avatar appears consistently in the profile and family header. Workspace expansion is out of scope until the family journey has real usage evidence.
 
 ## Connection center
 

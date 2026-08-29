@@ -1,10 +1,14 @@
 from pathlib import Path
+from xml.etree import ElementTree
+
+
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "app" / "index.html").read_text(encoding="utf-8")
 CSS = (ROOT / "app" / "styles.css").read_text(encoding="utf-8")
 JS = (ROOT / "app" / "app.js").read_text(encoding="utf-8")
 OPENAPI = (ROOT / "contracts" / "channel-gateway.openapi.yaml").read_text(encoding="utf-8")
 GATEWAY_DOC = (ROOT / "docs" / "integration-gateway.md").read_text(encoding="utf-8")
+AVATAR_ASSET_ROOT = ROOT / "app" / "assets" / "family-work"
 
 
 def require(source: str, fragment: str, reason: str) -> None:
@@ -27,6 +31,7 @@ require(HTML, 'id="family-key-input"', "family-key input")
 require(HTML, 'id="matched-family"', "unique family confirmation")
 require(HTML, 'id="avatar-step"', "custom avatar selection")
 require(HTML, 'id="avatar-upload"', "local avatar upload")
+require(HTML, 'aria-label="默认 SVG 头像"', "static SVG avatar library")
 require(HTML, 'data-channel="wecom"', "WeCom connector")
 require(HTML, 'data-channel="wechat-clawbot"', "personal WeChat ClawBot connector")
 require(HTML, 'data-channel="feishu"', "Feishu connector")
@@ -51,8 +56,28 @@ require(OPENAPI, "additionalProperties: false", "strict object schemas")
 require(GATEWAY_DOC, "Personal WeChat / ClawBot", "personal WeChat ClawBot boundary")
 require(GATEWAY_DOC, "durable inbox claim", "durable event claim boundary")
 
-for removed_fragment in ('id="feishu-sign-in"', 'id="mode-switch"', 'data-visual-mode="family"', "ROLE_ASSETS", "assets/family-work"):
+for removed_fragment in ('id="feishu-sign-in"', 'id="mode-switch"', 'data-visual-mode="family"', "ROLE_ASSETS"):
     if removed_fragment in HTML or removed_fragment in JS:
         raise AssertionError(f"Removed identity/workspace direction still present: {removed_fragment}")
+
+roles = ("mother", "father", "daughter", "son", "grandfather", "grandmother")
+static_states = ("family", "work")
+svg_files = sorted(AVATAR_ASSET_ROOT.glob("*/*.svg"))
+if len(svg_files) != 12:
+    raise AssertionError(f"Expected 12 static avatar SVGs, found {len(svg_files)}")
+
+for role in roles:
+    for state in static_states:
+        path = AVATAR_ASSET_ROOT / role / f"{state}.svg"
+        if not path.is_file():
+            raise AssertionError(f"Missing static avatar asset: {path.relative_to(ROOT)}")
+        root = ElementTree.parse(path).getroot()
+        for element in root.iter():
+            tag = element.tag.rsplit("}", 1)[-1]
+            if tag in {"script", "image", "foreignObject"}:
+                raise AssertionError(f"Unsafe SVG element {tag}: {path.relative_to(ROOT)}")
+
+if any(AVATAR_ASSET_ROOT.glob("*/*-to-*.svg")):
+    raise AssertionError("Transition SVGs must not be included in the default avatar library")
 
 print("PASS: conversational schedule structural contract")

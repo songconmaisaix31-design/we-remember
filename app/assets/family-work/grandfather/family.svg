@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Grandfather — Daily home life</title>
+  <desc id="description">Grandfather shown in the family form: daily home life.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="cardigan-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M318 268 L344 292 L370 268 M344 292 L344 422 M303 348 L329 348 M359 348 L385 348" fill="none" stroke="#000" stroke-linecap="round" stroke-width="9" /></mask>
+  
+  </defs>
+  <g id="state-art" data-state="family">
+<g fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+    <path id="grandfather-head" d="M327 87 C346 76 373 77 393 90 C413 104 423 128 419 153 L414 181 C407 204 390 222 367 229 L339 225 C315 217 299 197 295 172 L297 137 C300 116 310 99 327 87 Z M312 139 L311 166 C314 188 329 207 348 213 C368 215 388 200 397 178 L400 147 L381 137 L352 133 L333 124 Z" />
+    <g id="glasses" fill="none" stroke="currentColor" stroke-width="8"><circle cx="334" cy="160" r="20" /><circle cx="382" cy="160" r="20" /><path d="M354 160 L362 160" /></g>
+    <path id="grandfather-body" mask="url(#cardigan-cut)" d="M329 227 L369 227 L377 247 L408 257 L431 275 L450 307 L475 392 L472 412 L459 424 L374 432 L333 430 L315 416 L281 417 L277 390 L263 380 L239 401 L210 401 L201 379 L238 306 L257 276 L281 259 L322 248 Z M404 337 L399 393 L437 388 Z" />
+    <path id="cane" d="M85 457 L70 457 L70 293 C70 263 89 244 116 244 C139 244 156 260 156 281 C156 300 142 315 123 316 L123 300 C133 299 140 291 140 281 C140 269 130 260 116 260 C97 260 85 273 85 293 Z" />
+  </g>
+
+  </g>
+</svg>

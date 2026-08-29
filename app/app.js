@@ -27,7 +27,21 @@ const spaceAvatar = document.querySelector("#space-avatar");
 const profileSpace = document.querySelector("#profile-space");
 const DEMO_SESSION_KEY = "we-remember-demo-session-v2";
 const DEMO_FAMILY_KEY = "DEMO-HOME";
-const AVATAR_IDS = new Set(["coral", "sage", "blue", "gold"]);
+const AVATAR_PRESETS = Object.freeze({
+  "mother-family": "assets/family-work/mother/family.svg",
+  "mother-work": "assets/family-work/mother/work.svg",
+  "father-family": "assets/family-work/father/family.svg",
+  "father-work": "assets/family-work/father/work.svg",
+  "daughter-family": "assets/family-work/daughter/family.svg",
+  "daughter-work": "assets/family-work/daughter/work.svg",
+  "son-family": "assets/family-work/son/family.svg",
+  "son-work": "assets/family-work/son/work.svg",
+  "grandfather-family": "assets/family-work/grandfather/family.svg",
+  "grandfather-work": "assets/family-work/grandfather/work.svg",
+  "grandmother-family": "assets/family-work/grandmother/family.svg",
+  "grandmother-work": "assets/family-work/grandmother/work.svg",
+});
+const AVATAR_IDS = new Set(Object.keys(AVATAR_PRESETS));
 
 let selectedAvatar = null;
 let activeSession = null;
@@ -72,7 +86,9 @@ const applyAvatar = (element, avatar) => {
     element.textContent = "";
     return;
   }
-  element.classList.add(avatar.id);
+  element.classList.add("svg-avatar");
+  element.style.backgroundImage = `url("${AVATAR_PRESETS[avatar.id]}")`;
+  element.textContent = "";
 };
 
 const updateSessionPresentation = () => {

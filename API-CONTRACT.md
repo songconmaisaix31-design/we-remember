@@ -43,10 +43,13 @@ interface SessionResponse {
   avatar?: { kind: "preset"; presetId: AvatarPresetId } | { kind: "upload"; assetId: string };
 }
 
-type AvatarPresetId = "coral" | "sage" | "blue" | "gold";
+type AvatarRole = "mother" | "father" | "daughter" | "son" | "grandfather" | "grandmother";
+type AvatarForm = "family" | "work";
+type AvatarPresetId = `${AvatarRole}-${AvatarForm}`;
 ```
 
 The session never exposes other families that a key did not select.
+The `work` suffix identifies a static visual form only; it does not select a work workspace or alter authorization.
 
 ### `POST /api/session/setup`
 

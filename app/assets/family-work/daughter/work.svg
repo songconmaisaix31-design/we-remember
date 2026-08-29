@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Daughter — Laboratory scientist</title>
+  <desc id="description">Daughter shown in the work form: laboratory scientist.</desc>
+  <metadata>Original vector artwork authored for the Family ↔ Work Role Suite.</metadata>
+  <defs>
+<mask id="top-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><path d="M312 283 L341 306 L370 283 M341 306 L341 393" fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round" stroke-width="9" /></mask>
+    
+<mask id="book-cut" maskUnits="userSpaceOnUse"><rect width="512" height="512" fill="#fff" /><g fill="none" stroke="#000" stroke-linecap="round" stroke-width="7"><path d="M61 366 C91 361 123 367 151 381" /><path d="M195 381 C216 368 237 364 256 367" /></g></mask>
+  
+  </defs>
+  <g id="state-art" data-state="work">
+<g id="work-art" fill="currentColor" fill-rule="evenodd" shape-rendering="geometricPrecision">
+<path id="daughter-head" d="M349 76 C374 74 397 86 409 106 C420 125 419 151 410 170 C422 181 429 197 426 214 C423 235 405 248 383 247 C375 236 364 229 353 225 L337 225 C315 220 299 204 292 181 C285 158 289 132 301 111 C313 91 329 80 349 76 Z M309 139 C306 158 308 179 318 195 C328 211 342 218 357 214 C374 210 387 196 393 178 L393 151 L374 139 L347 134 L327 124 Z" />
+    
+<path id="daughter-body" mask="url(#top-cut)" d="M329 226 L367 226 L375 247 L405 256 L429 274 L448 305 L476 390 L473 410 L460 422 L374 431 L333 429 L315 415 L279 416 L276 389 L264 379 L239 399 L207 399 L198 375 L237 302 L257 273 L281 257 L322 247 Z M402 334 L397 391 L435 386 Z" />
+    
+<g id="scientist-cues" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+  <path id="microscope" stroke="none" d="M86 254 L129 254 L129 275 L118 275 L138 317 C156 356 143 392 109 408 L170 408 L170 432 L43 432 L43 408 L76 408 C107 398 123 377 120 352 C117 329 101 302 90 281 L78 281 L78 265 Z M145 287 L177 287 L188 307 L174 316 L161 302 L145 302 Z" />
+  <path id="microscope-stage" stroke="none" d="M79 337 L179 337 L179 356 L79 356 Z" />
+  <path id="lab-coat-lines" d="M319 274 L346 302 L374 274 M346 302 L346 412 M315 350 L338 350 M355 350 L380 350" fill="none" stroke-width="8" />
+  <circle id="sample" cx="166" cy="326" r="10" stroke="none" />
+</g>
+</g>
+  </g>
+</svg>

@@ -7,6 +7,7 @@ The prototype is a dependency-free static web application:
 - `app/index.html`: semantic page structure and product copy.
 - `app/styles.css`: responsive layout, tokens, transitions, and reduced-motion handling.
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
+- `app/assets/family-work/`: 12 verified static SVG avatar endpoints; transition SVGs are intentionally excluded.
 - `app/app.js` session setup: public family-key fixture, unique family confirmation, custom avatar choice, and session-only persistence.
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
@@ -32,11 +33,11 @@ The production flow requires a backend because rate limiting, keyed hashing, bin
 ## Avatar state
 
 ```text
-preset_selected ----> session avatar
+static_svg_selected -> session avatar
 bounded_upload -----> local preview -----> session avatar
 ```
 
-Preset IDs are allowlisted. Local upload accepts PNG, JPEG, or WebP up to 2 MB and never sends the file in the static prototype. Production upload must decode and re-encode the image, strip metadata, enforce dimensions and size, and store only an opaque asset ID in the session.
+Static SVG preset IDs are allowlisted and resolve to repository-owned paths; the client cannot supply an arbitrary SVG URL. Local upload accepts PNG, JPEG, or WebP up to 2 MB and never sends the file in the static prototype. Production upload must decode and re-encode the image, strip metadata, enforce dimensions and size, and store only an opaque asset ID in the session.
 
 ## State model
 
@@ -101,4 +102,4 @@ python -m http.server 4173
 
 Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome at 1440×1000 and 390×844, including overflow metrics and screenshots.
 
-Also verify invalid-key failure, the public demo-key match, all preset avatars, a representative valid/invalid upload, session restoration, sign-out, reduced motion, and the absence of work-workspace controls.
+Also verify invalid-key failure, the public demo-key match, all 12 static SVG avatars, the absence of transition SVGs, a representative valid/invalid upload, session restoration, sign-out, reduced motion, and the absence of work-workspace controls.
