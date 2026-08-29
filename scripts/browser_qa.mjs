@@ -278,6 +278,32 @@ async function exerciseSelect(selector, label) {
   return result;
 }
 
+async function assertContainerExperience(selector, minimumRadius, label) {
+  const before = JSON.parse(await evaluate(`(() => {
+    const element = document.querySelector(${JSON.stringify(selector)});
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return JSON.stringify({
+      x: rect.left + rect.width / 2,
+      y: rect.top + Math.min(rect.height / 2, 80),
+      radius: parseFloat(style.borderTopLeftRadius),
+      transform: style.transform,
+      shadow: style.boxShadow
+    });
+  })()`));
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: before.x, y: before.y });
+  await new Promise((resolve) => setTimeout(resolve, 280));
+  const after = JSON.parse(await evaluate(`(() => {
+    const style = getComputedStyle(document.querySelector(${JSON.stringify(selector)}));
+    return JSON.stringify({ transform: style.transform, shadow: style.boxShadow });
+  })()`));
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 0, y: 0 });
+  if (before.radius < minimumRadius || after.transform === before.transform || after.shadow === before.shadow) {
+    throw new Error(`${label} container experience failed: ${JSON.stringify({ before, after })}`);
+  }
+  return { radius: before.radius, lifted: true, shadowChanged: true };
+}
+
 if (scenario === "identity") {
   await evaluate("sessionStorage.removeItem('we-remember-demo-session-v2'); true");
   await send("Page.navigate", { url });
@@ -403,6 +429,7 @@ if (scenario === "schedule" || scenario === "people") {
   const dayFilter = await exerciseSelect("#schedule-day-filter", "Schedule day filter");
   const memberFilter = await exerciseFilter("[data-member-filter]", "Schedule member filter");
   const scheduleLayout = await assertResponsiveLayout("#schedule-view [data-create-with-agent]");
+  const scheduleContainer = await assertContainerExperience("#schedule-view .schedule-panel", width <= 520 ? 26 : 28, "Schedule");
 
   await openView("people");
   const peopleView = await assertViewState("people");
@@ -415,6 +442,7 @@ if (scenario === "schedule" || scenario === "people") {
     throw new Error(`People and notification shared state failed: ${JSON.stringify(peopleSync)}`);
   }
   const peopleLayout = await assertResponsiveLayout("#people-view [data-create-with-agent]");
+  const peopleContainer = await assertContainerExperience("#people-view .people-panel", width <= 520 ? 26 : 28, "People");
 
   if (scenario === "schedule") {
     await openView("schedule");
@@ -436,9 +464,11 @@ if (scenario === "schedule" || scenario === "people") {
     dayFilter,
     memberFilter,
     scheduleLayout,
+    scheduleContainer,
     peopleView,
     peopleSync,
     peopleLayout,
+    peopleContainer,
     agentReturn,
   });
   process.exit(0);

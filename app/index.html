@@ -194,12 +194,12 @@
           </header>
 
           <section class="summary-grid" aria-label="时间表摘要">
-            <article class="summary-card surface"><span>已确认安排</span><strong id="schedule-total-count">3</strong><small>本地演示集合</small></article>
-            <article class="summary-card surface"><span>今天</span><strong id="schedule-today-count">2</strong><small>所有家庭成员</small></article>
-            <article class="summary-card surface"><span>待通知</span><strong id="schedule-notification-count">0</strong><small>不代表真实投递</small></article>
+            <article class="summary-card surface lift-card"><span>已确认安排</span><strong id="schedule-total-count">3</strong><small>本地演示集合</small></article>
+            <article class="summary-card surface lift-card"><span>今天</span><strong id="schedule-today-count">2</strong><small>所有家庭成员</small></article>
+            <article class="summary-card surface lift-card"><span>待通知</span><strong id="schedule-notification-count">0</strong><small>不代表真实投递</small></article>
           </section>
 
-          <section class="schedule-panel surface">
+          <section class="schedule-panel surface lift-card">
             <div class="filter-bar">
               <label for="schedule-day-filter"><span>查看日期</span><select id="schedule-day-filter"><option value="all">本周全部</option><option value="today">今天 · 8 月 29 日</option><option value="tomorrow">明天 · 8 月 30 日</option><option value="saturday">周六 · 8 月 29 日</option></select></label>
               <div class="member-filter" aria-label="按家庭成员筛选">
@@ -235,11 +235,11 @@
           </aside>
 
           <div class="people-layout">
-            <section class="people-panel surface" aria-labelledby="member-list-title">
+            <section class="people-panel surface lift-card" aria-labelledby="member-list-title">
               <header><div><p class="eyebrow">MEMBERS</p><h2 id="member-list-title">家庭成员</h2></div><span>6 人</span></header>
               <div id="people-member-list" class="people-member-list"></div>
             </section>
-            <section class="receipts-panel surface" aria-labelledby="receipt-list-title">
+            <section class="receipts-panel surface lift-card" aria-labelledby="receipt-list-title">
               <header><div><p class="eyebrow">RECEIPTS</p><h2 id="receipt-list-title">通知回执历史</h2></div><span id="receipt-total-count">2 条</span></header>
               <div class="receipt-legend" aria-label="状态说明"><span><i class="queued"></i>本地排队</span><span><i class="accepted"></i>演示接受</span><span><i class="failed"></i>演示失败</span></div>
               <div id="notification-receipt-list" class="notification-receipt-list" aria-live="polite"></div>
