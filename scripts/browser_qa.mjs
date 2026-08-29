@@ -61,71 +61,84 @@ await send("Emulation.setEmulatedMedia", {
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
 
-async function completeDemoSignIn(role = "mother") {
+async function completeDemoSignIn(avatarId = "coral") {
   const signedIn = await evaluate("!document.querySelector('.app-shell').hidden");
   if (signedIn) return;
   await evaluate(`(() => {
-    document.querySelector('#feishu-sign-in').click();
-    document.querySelector('#show-no-match').click();
-    return true;
-  })()`);
-  const noMatchSafe = await evaluate("!document.querySelector('#no-match-state').hidden && document.querySelector('#continue-to-avatar').disabled");
-  if (!noMatchSafe) throw new Error("Unbound Feishu identity did not fail closed");
-
-  await evaluate(`(() => {
-    document.querySelector('#hide-no-match').click();
-    document.querySelector('[data-space-id="family-home"]').click();
+    const keyInput = document.querySelector('#family-key-input');
+    keyInput.value = 'DEMO-HOME';
+    document.querySelector('#key-step').requestSubmit();
     document.querySelector('#continue-to-avatar').click();
-    document.querySelector('[data-role="${role}"]').click();
+    document.querySelector('[data-avatar-id="${avatarId}"]').click();
     document.querySelector('#enter-family-space').click();
     return true;
   })()`);
   await new Promise((resolve) => setTimeout(resolve, 250));
 }
 
-if (scenario === "identity" || scenario === "identity-reduced") {
-  const reducedMotion = scenario === "identity-reduced";
-  if (reducedMotion) {
-    await send("Emulation.setEmulatedMedia", { features: [{ name: "prefers-reduced-motion", value: "reduce" }] });
-  }
-  await evaluate("sessionStorage.removeItem('we-remember-demo-session-v1'); true");
+if (scenario === "identity") {
+  await evaluate("sessionStorage.removeItem('we-remember-demo-session-v2'); true");
   await send("Page.navigate", { url });
   await new Promise((resolve) => setTimeout(resolve, 500));
 
   const signedOut = JSON.parse(await evaluate(`JSON.stringify({
     gateVisible: !document.querySelector('#auth-gate').hidden,
     appHidden: document.querySelector('.app-shell').hidden,
-    loginCurrent: document.querySelector('[data-auth-progress="login"]').classList.contains('is-current')
+    keyCurrent: document.querySelector('[data-auth-progress="key"]').classList.contains('is-current')
   })`));
-  if (!signedOut.gateVisible || !signedOut.appHidden || !signedOut.loginCurrent) {
+  if (!signedOut.gateVisible || !signedOut.appHidden || !signedOut.keyCurrent) {
     throw new Error(`Signed-out gate failed: ${JSON.stringify(signedOut)}`);
   }
 
   await evaluate(`(() => {
-    document.querySelector('#feishu-sign-in').click();
-    document.querySelector('#show-no-match').click();
+    const input = document.querySelector('#family-key-input');
+    input.value = 'WRONG-KEY';
+    document.querySelector('#key-step').requestSubmit();
     return true;
   })()`);
-  const noMatchSafe = await evaluate("!document.querySelector('#no-match-state').hidden && document.querySelector('#continue-to-avatar').disabled");
-  if (!noMatchSafe) throw new Error("Unbound Feishu identity did not fail closed");
+  const invalidKeySafe = await evaluate("!document.querySelector('#key-error').hidden && !document.querySelector('.app-shell').hidden === false");
+  if (!invalidKeySafe) throw new Error("Invalid family key did not fail closed");
 
   await evaluate(`(() => {
-    document.querySelector('#hide-no-match').click();
-    document.querySelector('[data-space-id="family-home"]').click();
+    const input = document.querySelector('#family-key-input');
+    input.value = 'DEMO-HOME';
+    document.querySelector('#key-step').requestSubmit();
     document.querySelector('#continue-to-avatar').click();
     return true;
   })()`);
   await new Promise((resolve) => setTimeout(resolve, 200));
 
   const picker = JSON.parse(await evaluate(`JSON.stringify({
-    roleCount: document.querySelectorAll('.role-option').length,
-    roleImagesReady: [...document.querySelectorAll('.role-option img')].every((image) => image.complete && image.naturalWidth > 0),
+    avatarCount: document.querySelectorAll('.avatar-option').length,
     avatarStepVisible: !document.querySelector('#avatar-step').hidden,
     viewportWidth: window.innerWidth,
     scrollWidth: document.documentElement.scrollWidth
   })`));
-  if (picker.roleCount !== 6 || !picker.roleImagesReady || !picker.avatarStepVisible || picker.scrollWidth > picker.viewportWidth) {
+  if (picker.avatarCount !== 4 || !picker.avatarStepVisible || picker.scrollWidth > picker.viewportWidth) {
     throw new Error(`Avatar picker failed: ${JSON.stringify(picker)}`);
+  }
+
+  const uploadChecks = JSON.parse(await evaluate(`(async () => {
+    const upload = document.querySelector('#avatar-upload');
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'too-large.png', { type: 'image/png' }));
+    upload.files = transfer.files;
+    upload.dispatchEvent(new Event('change', { bubbles: true }));
+    const oversizedRejected = upload.value === '' && document.querySelector('#enter-family-space').disabled;
+
+    const bytes = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nKsAAAAASUVORK5CYII='), character => character.charCodeAt(0));
+    const validTransfer = new DataTransfer();
+    validTransfer.items.add(new File([bytes], 'avatar.png', { type: 'image/png' }));
+    upload.files = validTransfer.files;
+    upload.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return JSON.stringify({
+      oversizedRejected,
+      validAccepted: !document.querySelector('#enter-family-space').disabled && document.querySelector('#avatar-upload-status').textContent.includes('avatar.png')
+    });
+  })()`));
+  if (!uploadChecks.oversizedRejected || !uploadChecks.validAccepted) {
+    throw new Error(`Avatar upload validation failed: ${JSON.stringify(uploadChecks)}`);
   }
 
   if (width <= 520) {
@@ -143,77 +156,32 @@ if (scenario === "identity" || scenario === "identity-reduced") {
   writeFileSync(screenshotPath, Buffer.from(pickerScreenshot.data, "base64"));
 
   await evaluate(`(() => {
-    document.querySelector('[data-role="grandmother"]').click();
+    document.querySelector('[data-avatar-id="sage"]').click();
     document.querySelector('#enter-family-space').click();
-    document.querySelector('#mode-switch').click();
     return true;
   })()`);
-  const forwardPath = await evaluate("document.querySelector('#profile-avatar').getAttribute('src')");
-  if (reducedMotion) {
-    if (!forwardPath.endsWith("grandmother/work.svg")) throw new Error(`Reduced-motion work endpoint missing: ${forwardPath}`);
-  } else {
-    if (!forwardPath.includes("grandmother/family-to-work.svg")) throw new Error(`Forward transition missing: ${forwardPath}`);
-    await new Promise((resolve) => setTimeout(resolve, 2600));
-  }
-  const workPath = await evaluate("document.querySelector('#profile-avatar').getAttribute('src')");
-  if (!workPath.endsWith("grandmother/work.svg")) throw new Error(`Work endpoint missing: ${workPath}`);
 
   await send("Page.reload");
   await new Promise((resolve) => setTimeout(resolve, 500));
   const restored = JSON.parse(await evaluate(`JSON.stringify({
     appVisible: !document.querySelector('.app-shell').hidden,
-    mode: document.querySelector('.app-shell').dataset.visualMode,
-    role: document.querySelector('#profile-role').textContent
+    avatarClass: document.querySelector('#profile-avatar').className,
+    workSwitchAbsent: document.querySelector('#mode-switch') === null
   })`));
-  if (!restored.appVisible || restored.mode !== "work" || restored.role !== "奶奶") {
+  if (!restored.appVisible || !restored.avatarClass.includes("sage") || !restored.workSwitchAbsent) {
     throw new Error(`Session restore failed: ${JSON.stringify(restored)}`);
   }
 
-  await evaluate("document.querySelector('#mode-switch').click(); true");
-  const reversePath = await evaluate("document.querySelector('#profile-avatar').getAttribute('src')");
-  if (reducedMotion) {
-    if (!reversePath.endsWith("grandmother/family.svg")) throw new Error(`Reduced-motion family endpoint missing: ${reversePath}`);
-  } else {
-    if (!reversePath.includes("grandmother/work-to-family.svg")) throw new Error(`Reverse transition missing: ${reversePath}`);
-    await new Promise((resolve) => setTimeout(resolve, 2600));
-  }
   await evaluate("document.querySelector('#sign-out-button').click(); true");
   const signedOutAgain = await evaluate("!document.querySelector('#auth-gate').hidden && document.querySelector('.app-shell').hidden");
   if (!signedOutAgain) throw new Error("Sign-out did not restore the login gate");
 
-  console.log(JSON.stringify({ status: "passed", scenario, width, height, reducedMotion, noMatchSafe, ...picker, forwardPath, workPath, reversePath, restored, signedOutAgain }, null, 2));
+  console.log(JSON.stringify({ status: "passed", scenario, width, height, invalidKeySafe, ...picker, ...uploadChecks, restored, signedOutAgain }, null, 2));
   socket.close();
   process.exit(0);
 }
 
 await completeDemoSignIn();
-
-if (scenario === "workspace") {
-  const currentMode = await evaluate("document.querySelector('.app-shell').dataset.visualMode");
-  if (currentMode !== "family") await evaluate("document.querySelector('#mode-switch').click(); true");
-  await new Promise((resolve) => setTimeout(resolve, 2600));
-  await evaluate("document.querySelector('#mode-switch').click(); true");
-  await new Promise((resolve) => setTimeout(resolve, 2600));
-
-  const metrics = JSON.parse(await evaluate(`JSON.stringify({
-    viewportWidth: window.innerWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-    mode: document.querySelector('.app-shell').dataset.visualMode,
-    noticeVisible: !document.querySelector('#mode-notice').hidden,
-    workEndpoint: document.querySelector('#profile-avatar').getAttribute('src').endsWith('/work.svg'),
-    switchLabel: document.querySelector('#mode-switch-label').textContent
-  })`));
-  if (metrics.scrollWidth > metrics.viewportWidth || metrics.mode !== "work" || !metrics.noticeVisible || !metrics.workEndpoint || metrics.switchLabel !== "工作空间") {
-    throw new Error(`Work workspace failed: ${JSON.stringify(metrics)}`);
-  }
-
-  mkdirSync(dirname(screenshotPath), { recursive: true });
-  const screenshot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
-  writeFileSync(screenshotPath, Buffer.from(screenshot.data, "base64"));
-  console.log(JSON.stringify({ status: "passed", scenario, width, height, ...metrics }, null, 2));
-  socket.close();
-  process.exit(0);
-}
 
 if (scenario === "integrations") {
   await evaluate(`(() => {

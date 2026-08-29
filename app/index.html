@@ -19,69 +19,60 @@
           <div>
             <p class="eyebrow">WE REMEMBER · SIGN IN</p>
             <h1 id="auth-title">先找到属于你的家庭空间</h1>
-            <p>用飞书确认外部身份，再从已绑定的家庭和群组中选择。身份不会自动获得家庭权限。</p>
+            <p>输入家庭管理员提供的密钥，只匹配一个家庭。确认家庭后，先选择自己的头像再进入。</p>
           </div>
         </header>
 
         <div class="auth-progress" aria-label="登录进度">
-          <span class="is-current" data-auth-progress="login">01 飞书登录</span>
-          <span data-auth-progress="space">02 选择空间</span>
-          <span data-auth-progress="avatar">03 选择形象</span>
+          <span class="is-current" data-auth-progress="key">01 家庭密钥</span>
+          <span data-auth-progress="family">02 确认家庭</span>
+          <span data-auth-progress="avatar">03 选择头像</span>
         </div>
 
-        <div class="auth-step" id="login-step">
-          <div class="feishu-mark" aria-hidden="true">飞</div>
+        <form class="auth-step" id="key-step">
+          <div class="key-mark" aria-hidden="true">钥</div>
           <div class="auth-step-copy">
-            <h2>使用飞书继续</h2>
-            <p>生产环境会跳转飞书 OAuth，并由服务端交换授权码。本地页面只演示成功后的匹配流程，不读取聊天或保存 token。</p>
+            <h2>使用家庭密钥登录</h2>
+            <p>生产环境只把密钥发送到服务端做哈希校验，不在浏览器保存。当前使用公开演示码验证交互。</p>
           </div>
-          <button class="primary-auth-button" id="feishu-sign-in" type="button">使用飞书登录 <span>→</span></button>
-          <p class="prototype-badge">本地交互演示 · 非生产 OAuth</p>
-        </div>
+          <label class="family-key-field" for="family-key-input"><span>家庭密钥</span><input id="family-key-input" name="familyKey" autocomplete="off" spellcheck="false" placeholder="输入家庭密钥" required /></label>
+          <button class="primary-auth-button" id="match-family-button" type="submit">匹配家庭 <span>→</span></button>
+          <p class="prototype-badge">公开演示码：DEMO-HOME · 不是真实密钥</p>
+          <p class="key-error" id="key-error" role="alert" hidden>没有匹配到家庭。请检查密钥，或联系家庭管理员重新生成。</p>
+        </form>
 
-        <div class="auth-step" id="space-step" hidden>
+        <div class="auth-step" id="family-step" hidden>
           <div class="step-heading">
-            <div><span>飞书身份已验证</span><h2>选择匹配到的家庭或群组</h2></div>
-            <small>演示数据</small>
+            <div><span>密钥匹配成功</span><h2>这是你要进入的家庭吗？</h2></div>
+            <small>唯一匹配</small>
           </div>
-          <div class="space-options" role="radiogroup" aria-label="匹配到的空间">
-            <button class="space-option" type="button" role="radio" aria-checked="false" data-space-id="family-home">
-              <span class="space-glyph">家</span><span><strong>我们的家</strong><small>家庭空间 · 6 人</small></span><i>最近使用</i>
-            </button>
-            <button class="space-option" type="button" role="radio" aria-checked="false" data-space-id="care-group">
-              <span class="space-glyph sage">护</span><span><strong>长辈照护群</strong><small>家庭群组 · 4 人</small></span><i>已绑定</i>
-            </button>
+          <div class="matched-family" id="matched-family">
+            <span class="space-glyph">家</span><span><strong>我们的家</strong><small>6 位成员 · 家庭时间表</small></span><i>已安全匹配</i>
           </div>
-          <button class="text-button" id="show-no-match" type="button">没有看到我的家庭或群组</button>
-          <div class="no-match-state" id="no-match-state" hidden>
-            <strong>不会替你猜一个家庭。</strong>
-            <p>请让家庭管理员先把这个飞书身份加入空间，或重新检查当前登录的飞书账号。</p>
-            <button class="text-button" id="hide-no-match" type="button">返回已匹配列表</button>
-          </div>
-          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="login">返回</button><button class="primary-auth-button" id="continue-to-avatar" type="button" disabled>继续选择形象</button></div>
+          <p class="match-boundary">密钥只用于建立本次家庭会话，不会授予其他家庭或外部平台权限。</p>
+          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="key">返回</button><button class="primary-auth-button" id="continue-to-avatar" type="button">确认并选择头像</button></div>
         </div>
 
         <div class="auth-step" id="avatar-step" hidden>
           <div class="step-heading">
-            <div><span>空间已确认</span><h2>你希望以哪个家庭角色出现？</h2></div>
-            <small>随时可修改</small>
+            <div><span>家庭已确认</span><h2>选择你的头像</h2></div>
+            <small>进入前完成</small>
           </div>
-          <div class="role-options" role="radiogroup" aria-label="家庭角色形象">
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="mother"><img src="assets/family-work/mother/family.svg" alt="妈妈家庭形象" /><span>妈妈<small>居家烹饪</small></span></button>
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="father"><img src="assets/family-work/father/family.svg" alt="爸爸家庭形象" /><span>爸爸<small>家庭修缮</small></span></button>
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="daughter"><img src="assets/family-work/daughter/family.svg" alt="女儿家庭形象" /><span>女儿<small>居家阅读</small></span></button>
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="son"><img src="assets/family-work/son/family.svg" alt="儿子家庭形象" /><span>儿子<small>滑板休闲</small></span></button>
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="grandfather"><img src="assets/family-work/grandfather/family.svg" alt="爷爷家庭形象" /><span>爷爷<small>日常生活</small></span></button>
-            <button class="role-option" type="button" role="radio" aria-checked="false" data-role="grandmother"><img src="assets/family-work/grandmother/family.svg" alt="奶奶家庭形象" /><span>奶奶<small>居家编织</small></span></button>
+          <div class="avatar-options" role="radiogroup" aria-label="头像样式">
+            <button class="avatar-option coral" type="button" role="radio" aria-checked="false" data-avatar-id="coral"><span>我</span><small>珊瑚</small></button>
+            <button class="avatar-option sage" type="button" role="radio" aria-checked="false" data-avatar-id="sage"><span>我</span><small>青杉</small></button>
+            <button class="avatar-option blue" type="button" role="radio" aria-checked="false" data-avatar-id="blue"><span>我</span><small>海蓝</small></button>
+            <button class="avatar-option gold" type="button" role="radio" aria-checked="false" data-avatar-id="gold"><span>我</span><small>暖金</small></button>
           </div>
-          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="space">返回</button><button class="primary-auth-button" id="enter-family-space" type="button" disabled>进入家庭空间</button></div>
+          <label class="avatar-upload" for="avatar-upload"><span>上传自己的头像</span><small id="avatar-upload-status">PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传</small><input id="avatar-upload" type="file" accept="image/png,image/jpeg,image/webp" /></label>
+          <div class="auth-actions"><button class="secondary-button" type="button" data-auth-back="family">返回</button><button class="primary-auth-button" id="enter-family-space" type="button" disabled>进入家庭时间表</button></div>
         </div>
 
-        <footer class="auth-footer">只使用已绑定关系匹配空间 · 不根据昵称、群名或手机号猜测身份</footer>
+        <footer class="auth-footer">一个密钥只匹配一个家庭 · 不根据昵称、群名或手机号猜测身份</footer>
       </div>
     </section>
 
-    <div class="app-shell" data-app-state="idle" data-visual-mode="family" hidden>
+    <div class="app-shell" data-app-state="idle" hidden>
       <aside class="identity-rail surface" aria-label="主导航">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">W</span>
@@ -90,11 +81,11 @@
 
         <div class="profile">
           <div class="avatar-wrap">
-            <img id="profile-avatar" src="assets/family-work/mother/family.svg" alt="已选择的家庭角色头像" />
+            <span class="custom-avatar coral" id="profile-avatar" aria-label="我的头像">我</span>
             <span class="presence" aria-label="Agent 在线">✦</span>
           </div>
           <div>
-            <strong id="profile-role">妈妈</strong>
+            <strong id="profile-name">我</strong>
             <span id="profile-space">我们的家 · 6 人</span>
           </div>
         </div>
@@ -116,7 +107,7 @@
 
         <div class="rail-note">
           <span class="status-dot"></span>
-          <p><strong>飞书登录演示</strong><br />日程和通知仅保存在本页</p>
+          <p><strong>家庭密钥演示</strong><br />日程和通知仅保存在本页</p>
           <button class="sign-out-button" id="sign-out-button" type="button">退出</button>
         </div>
       </aside>
@@ -124,21 +115,12 @@
       <main class="workspace">
         <header class="workspace-header">
           <div>
-            <p class="eyebrow" id="workspace-eyebrow">FAMILY SPACE · SATURDAY</p>
-            <h1 id="workspace-title">今天想安排什么？</h1>
-            <p id="workspace-subtitle">直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
+            <p class="eyebrow">FAMILY · SATURDAY</p>
+            <h1>今天想安排什么？</h1>
+            <p>直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
           </div>
-          <button class="family-switch surface" id="mode-switch" type="button" aria-label="切换到工作空间">
-            <img id="space-avatar" src="assets/family-work/mother/family.svg" alt="" aria-hidden="true" />
-            <span id="mode-switch-label">家庭空间</span>
-            <span aria-hidden="true">⇄</span>
-          </button>
+          <div class="family-badge surface"><span class="custom-avatar coral" id="space-avatar" aria-hidden="true">我</span><span>我们的家</span></div>
         </header>
-
-        <section class="mode-notice surface" id="mode-notice" hidden>
-          <span>WORKSPACE PREVIEW</span>
-          <p><strong>工作空间仍在搭建中。</strong> 当前先验证同一身份从家庭形象过渡到工作形象，并可随时切回。</p>
-        </section>
 
         <section class="date-strip" aria-label="本周日期">
           <button type="button"><span>四</span><strong>27</strong></button>
@@ -300,7 +282,7 @@
             <button class="channel-action" type="button" data-channel-detail="feishu">查看接入要求 <span>→</span></button>
             <div class="channel-detail" data-detail="feishu" hidden>
               <strong>启用条件</strong>
-              <p>本机 lark-cli 已通过身份验证，但它只用于开发接入，不能替代最终用户的网页 OAuth 登录。下一步仍需配置正式回调、最小消息权限、事件订阅和目标会话。</p>
+              <p>本机 lark-cli 已通过身份验证，但它只用于开发接入，不参与家庭密钥登录。启用飞书通知前仍需配置最小消息权限、事件订阅、目标会话和可撤销配对。</p>
             </div>
           </article>
 

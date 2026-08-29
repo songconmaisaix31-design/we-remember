@@ -29,7 +29,7 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - The UI does not claim that local demo notifications or transcription are production delivery.
 - The desktop layout and a 390 px mobile viewport have no horizontal overflow, clipped primary action, or overlapping content.
 - Reduced-motion users do not receive decorative movement.
-- The login gate, space picker, avatar picker, and bidirectional role transition work at desktop and 390 px mobile widths.
+- The family-key gate, unique family confirmation, and custom avatar picker work at desktop and 390 px mobile widths.
 
 ## Product boundaries
 
@@ -38,36 +38,29 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - Notifications remain consent- and authorization-gated. Mentioning a person does not automatically grant permission to notify them.
 - High-risk health, safety, financial, or legal content may create a draft but must not trigger consequential actions without human review.
 
-## Feishu sign-in and identity setup
+## Family-key sign-in and identity setup
 
 The first application visit begins in a signed-out state. The primary path is:
 
-1. Continue with Feishu.
-2. The server validates the Feishu OAuth callback and establishes an HTTP-only application session.
-3. The server resolves the authenticated `(tenantKey, openId)` only against existing, revocable external-identity bindings.
-4. The person chooses one matched family or group space.
-5. The person chooses one of the six role avatars, then enters the family workspace.
+1. Enter a family key supplied by a family administrator.
+2. The server rate-limits the attempt, compares a server-side hash, and resolves exactly one active family binding.
+3. The person confirms the matched family.
+4. The person chooses a color avatar or uploads a bounded image, then enters the family timeline.
 
-The static prototype demonstrates this flow with clearly labeled fictional matches. It never claims that the browser has exchanged a real OAuth code, and it stores no token or provider identifier.
+The static prototype demonstrates this flow with the public fixture code `DEMO-HOME`. The fixture is not a secret and never represents production authentication. The entered key is cleared immediately after matching and is not persisted.
 
 Identity acceptance criteria:
 
 - The application content is unavailable until setup is complete.
-- Feishu sign-in and family/group membership are separate decisions; a provider identity never creates membership by itself.
-- A person can select among matched spaces and all six role avatars.
-- The local prototype persists only the selected fictional space, role, and visual mode for the browser session.
+- One valid key resolves one family; the client never offers a cross-family picker or guesses a match.
+- A person chooses a preset avatar or a local PNG, JPEG, or WebP image before entry.
+- The local prototype persists only the fictional family ID and selected avatar for the browser session.
 - Signing out clears the local prototype session and returns to the login gate.
-- Unknown or unbound Feishu identities receive a safe no-match state instead of a guessed family.
+- Invalid, expired, revoked, or rate-limited keys fail closed without revealing whether a family exists.
 
-## Family and work forms
+## Single family domain
 
-Each role has an exact family form, work form, family-to-work animation, and work-to-family animation imported from `family-work-svg-suite-2026-08-29.zip`.
-
-- The selected family avatar appears in profile and space controls.
-- Switching to the future work workspace plays the role's family-to-work SVG once, then settles on the static work form.
-- Switching back plays work-to-family once, then settles on the static family form.
-- Reduced-motion users see the destination static form immediately.
-- The current release changes identity presentation and workspace label only; work-domain features remain explicitly future scope.
+The product has one domain: the family's shared time, people, reminders, and connected channels. There is no work workspace, work identity, role-based avatar, or family/work switch. The selected custom avatar appears consistently in the profile and family header. Workspace expansion is out of scope until the family journey has real usage evidence.
 
 ## Connection center
 

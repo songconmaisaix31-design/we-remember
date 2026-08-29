@@ -32,7 +32,7 @@ The check emits only versions and booleans. It intentionally omits account IDs, 
 
 Do not send a real message until the recipient, content, sending identity, and idempotency key are explicit.
 
-The developer-machine `lark-cli` login is not an end-user application session. Browser sign-in must use the server-side Feishu OAuth flow defined in `API-CONTRACT.md`; its callback resolves existing external-identity bindings and issues the application's own secure session cookie.
+The developer-machine `lark-cli` login is not an end-user application session and never participates in family-key sign-in. Feishu is an optional notification channel; production pairing must use a separate, short-lived server-side flow that resolves an existing family member, issues no family authority from provider identity alone, and remains independently revocable.
 
 ## DingTalk adapter bootstrap
 

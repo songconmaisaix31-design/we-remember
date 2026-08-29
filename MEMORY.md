@@ -6,8 +6,8 @@
 - `svg-transition/family-work-suite/` contains six roles with exact static family/work endpoints and two one-shot transition SVGs per role (24 SVGs total). The family forms use independent home activities rather than a child as an identity cue.
 - `app/` now contains a dependency-free conversational schedule UX prototype. Typed messages, live dictation, and auto-send voice messages lead to a confirmation-gated schedule draft; confirmation updates the in-page timeline and creates a truthful local notification receipt.
 - The prototype connection center presents separate WeCom and personal-WeChat ClawBot installations alongside Feishu, DingTalk, and custom bots. Local Feishu and DingTalk CLIs are authenticated out of process; the page and repository never receive their credentials.
-- First entry now uses a fictional Feishu sign-in fixture followed by server-bound space selection and six-role avatar selection. It is explicitly not a live OAuth callback; the local browser stores only fictional `spaceId`, role, and visual mode in `sessionStorage`.
-- `app/assets/family-work/` contains the 24 verified runtime SVGs imported from desktop package SHA-256 `2EFA5E3D7EFDF631A030288E2B478CFCF1A5472645321C9D6C0ED4E4B286B988`.
+- First entry now uses the explicitly public `DEMO-HOME` family-key fixture, confirms one matched family, and requires a preset or bounded local-upload avatar before entry. The browser clears the typed key after matching and stores only the fictional family ID and avatar in `sessionStorage`.
+- The application now focuses on one family domain. It has no work workspace, family/work identity switch, role-based avatar, or runtime dependency on the generated family/work SVG suite.
 
 ## Durable Decisions
 
@@ -28,5 +28,6 @@
 - Native platform SDKs stay inside WeCom, Feishu, and DingTalk adapters. External payloads cannot select internal member, space, role, visibility, consent, or authority. Identity and conversation bindings are explicit and revocable.
 - Personal WeChat uses Tencent's `@tencent-weixin/openclaw-weixin` ClawBot plugin as an isolated OpenClaw sidecar. Treat its published surface as paired direct messages only: do not claim personal group support, read chat history, share identity bindings with WeCom, or copy channel credentials into product storage.
 - `lark-cli` and DingTalk Workspace CLI (`dws`) are the approved local control-plane tools for discovery, dry runs, and bounded verification. Production transport still requires dedicated adapters, explicit application/bot identities, administrator-approved scopes, durable inbox/outbox processing, and revocable identity/conversation bindings.
-- Feishu developer CLI authentication and end-user web login are separate trust boundaries. Production login exchanges OAuth codes server-side, matches `(tenantKey, openId)` only to existing revocable bindings, issues a secure application session, and fails closed when no family or group is bound.
-- Family/work presentation is a reversible identity mode, not an authorization change. Each switch uses the selected role's one-shot transition SVG, settles on the exact static endpoint after 2400 ms, skips animation for reduced-motion users, and guards stale timers with a transition revision.
+- Feishu remains an optional connection-center channel and local developer CLI; it is not a required end-user login provider.
+- Production family-key login uses high-entropy revocable keys, server-side keyed hashes, uniform failure responses, and rate limits. One active key resolves exactly one family, and raw key material is never logged, returned, or persisted in the browser.
+- Custom avatars replace family/work role images. Presets use allowlisted IDs; production uploads must be bounded, decoded and re-encoded, stripped of metadata, and represented in sessions by opaque asset IDs.

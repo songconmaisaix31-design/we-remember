@@ -14,52 +14,31 @@ const stopVoiceButton = document.querySelector("#stop-voice");
 const integrationsDialog = document.querySelector("#integrations-dialog");
 const authGate = document.querySelector("#auth-gate");
 const appShell = document.querySelector(".app-shell");
-const feishuSignInButton = document.querySelector("#feishu-sign-in");
+const familyKeyForm = document.querySelector("#key-step");
+const familyKeyInput = document.querySelector("#family-key-input");
+const keyError = document.querySelector("#key-error");
 const continueToAvatarButton = document.querySelector("#continue-to-avatar");
 const enterFamilySpaceButton = document.querySelector("#enter-family-space");
+const avatarUpload = document.querySelector("#avatar-upload");
+const avatarUploadStatus = document.querySelector("#avatar-upload-status");
 const signOutButton = document.querySelector("#sign-out-button");
-const modeSwitch = document.querySelector("#mode-switch");
-const modeSwitchLabel = document.querySelector("#mode-switch-label");
 const profileAvatar = document.querySelector("#profile-avatar");
 const spaceAvatar = document.querySelector("#space-avatar");
-const profileRole = document.querySelector("#profile-role");
 const profileSpace = document.querySelector("#profile-space");
-const workspaceEyebrow = document.querySelector("#workspace-eyebrow");
-const workspaceTitle = document.querySelector("#workspace-title");
-const workspaceSubtitle = document.querySelector("#workspace-subtitle");
-const modeNotice = document.querySelector("#mode-notice");
-const showNoMatchButton = document.querySelector("#show-no-match");
-const hideNoMatchButton = document.querySelector("#hide-no-match");
-const noMatchState = document.querySelector("#no-match-state");
-const spaceOptions = document.querySelector(".space-options");
+const DEMO_SESSION_KEY = "we-remember-demo-session-v2";
+const DEMO_FAMILY_KEY = "DEMO-HOME";
+const AVATAR_IDS = new Set(["coral", "sage", "blue", "gold"]);
 
-const DEMO_SESSION_KEY = "we-remember-demo-session-v1";
-const ROLE_ASSETS = Object.freeze({
-  mother: { label: "妈妈", family: "居家烹饪", work: "办公室职业人" },
-  father: { label: "爸爸", family: "家庭修缮", work: "现场工程师" },
-  daughter: { label: "女儿", family: "居家阅读", work: "实验室科学家" },
-  son: { label: "儿子", family: "滑板休闲", work: "摄影师" },
-  grandfather: { label: "爷爷", family: "日常生活", work: "教师与导师" },
-  grandmother: { label: "奶奶", family: "居家编织", work: "专业裁缝" },
-});
-const SPACE_FIXTURES = Object.freeze({
-  "family-home": { name: "我们的家", memberCount: 6 },
-  "care-group": { name: "长辈照护群", memberCount: 4 },
-});
-
-let selectedSpaceId = null;
-let selectedRole = null;
+let selectedAvatar = null;
 let activeSession = null;
-let visualTransitionRevision = 0;
-
-const roleAssetPath = (role, state) => `assets/family-work/${role}/${state}.svg`;
 
 const readDemoSession = () => {
   try {
     const candidate = JSON.parse(window.sessionStorage.getItem(DEMO_SESSION_KEY));
-    if (!candidate || !SPACE_FIXTURES[candidate.spaceId] || !ROLE_ASSETS[candidate.role]) return null;
-    if (!new Set(["family", "work"]).has(candidate.mode)) return null;
-    return { spaceId: candidate.spaceId, role: candidate.role, mode: candidate.mode };
+    if (!candidate || candidate.familyId !== "demo-family" || !candidate.avatar) return null;
+    if (candidate.avatar.kind === "preset" && AVATAR_IDS.has(candidate.avatar.id)) return candidate;
+    if (candidate.avatar.kind === "upload" && /^data:image\/(png|jpeg|webp);base64,/.test(candidate.avatar.dataUrl)) return candidate;
+    return null;
   } catch {
     return null;
   }
@@ -67,7 +46,11 @@ const readDemoSession = () => {
 
 const persistDemoSession = () => {
   if (!activeSession) return;
-  window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(activeSession));
+  try {
+    window.sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(activeSession));
+  } catch {
+    showToast("头像已用于当前页面，但图片较大，刷新后需要重新选择。");
+  }
 };
 
 const setAuthStep = (step) => {
@@ -79,40 +62,24 @@ const setAuthStep = (step) => {
   });
 };
 
-const updateSessionPresentation = ({ animate = false, fromMode = null } = {}) => {
-  if (!activeSession) return;
-  const role = ROLE_ASSETS[activeSession.role];
-  const space = SPACE_FIXTURES[activeSession.spaceId];
-  const destination = activeSession.mode;
-  const staticPath = roleAssetPath(activeSession.role, destination);
-  const transitionPath = fromMode ? roleAssetPath(activeSession.role, `${fromMode}-to-${destination}`) : staticPath;
-  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const revision = ++visualTransitionRevision;
-
-  profileRole.textContent = role.label;
-  profileSpace.textContent = `${space.name} · ${space.memberCount} 人`;
-  modeSwitchLabel.textContent = destination === "family" ? "家庭空间" : "工作空间";
-  modeSwitch.setAttribute("aria-label", destination === "family" ? "切换到工作空间" : "切换到家庭空间");
-  workspaceEyebrow.textContent = destination === "family" ? "FAMILY SPACE · SATURDAY" : "WORKSPACE PREVIEW · SATURDAY";
-  workspaceTitle.textContent = destination === "family" ? "今天想安排什么？" : "今天想推进什么？";
-  workspaceSubtitle.textContent = destination === "family"
-    ? "直接告诉 Agent。时间、参与人和提醒方式会先由你确认。"
-    : `${role.work}形象已启用。工作空间能力会在后续版本接入。`;
-  modeNotice.hidden = destination !== "work";
-  appShell.dataset.visualMode = destination;
-
-  const displayPath = animate && !prefersReducedMotion ? `${transitionPath}?play=${revision}` : staticPath;
-  profileAvatar.src = displayPath;
-  profileAvatar.alt = `${role.label}的${destination === "family" ? "家庭" : "工作"}形象`;
-  spaceAvatar.src = displayPath;
-
-  if (animate && !prefersReducedMotion) {
-    window.setTimeout(() => {
-      if (revision !== visualTransitionRevision || !activeSession || activeSession.mode !== destination) return;
-      profileAvatar.src = staticPath;
-      spaceAvatar.src = staticPath;
-    }, 2450);
+const applyAvatar = (element, avatar) => {
+  element.className = "custom-avatar";
+  element.style.backgroundImage = "";
+  element.textContent = "我";
+  if (avatar.kind === "upload") {
+    element.classList.add("uploaded");
+    element.style.backgroundImage = `url(${JSON.stringify(avatar.dataUrl).slice(1, -1)})`;
+    element.textContent = "";
+    return;
   }
+  element.classList.add(avatar.id);
+};
+
+const updateSessionPresentation = () => {
+  if (!activeSession) return;
+  profileSpace.textContent = "我们的家 · 6 人";
+  applyAvatar(profileAvatar, activeSession.avatar);
+  applyAvatar(spaceAvatar, activeSession.avatar);
 };
 
 const showApplication = (session) => {
@@ -125,69 +92,72 @@ const showApplication = (session) => {
 
 const showSignIn = () => {
   activeSession = null;
-  selectedSpaceId = null;
-  selectedRole = null;
-  document.querySelectorAll(".space-option, .role-option").forEach((element) => element.setAttribute("aria-checked", "false"));
-  continueToAvatarButton.disabled = true;
+  selectedAvatar = null;
+  familyKeyForm.reset();
+  keyError.hidden = true;
+  avatarUploadStatus.textContent = "PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传";
+  document.querySelectorAll(".avatar-option").forEach((element) => element.setAttribute("aria-checked", "false"));
   enterFamilySpaceButton.disabled = true;
   appShell.hidden = true;
   authGate.hidden = false;
   document.body.dataset.sessionStatus = "signed-out";
-  setAuthStep("login");
+  setAuthStep("key");
 };
 
-feishuSignInButton.addEventListener("click", () => {
-  noMatchState.hidden = true;
-  spaceOptions.hidden = false;
-  showNoMatchButton.hidden = false;
-  setAuthStep("space");
-  document.querySelector(".space-option")?.focus();
-});
-
-showNoMatchButton.addEventListener("click", () => {
-  selectedSpaceId = null;
-  document.querySelectorAll(".space-option").forEach((option) => option.setAttribute("aria-checked", "false"));
-  noMatchState.hidden = false;
-  spaceOptions.hidden = true;
-  showNoMatchButton.hidden = true;
-  continueToAvatarButton.disabled = true;
-});
-
-hideNoMatchButton.addEventListener("click", () => {
-  noMatchState.hidden = true;
-  spaceOptions.hidden = false;
-  showNoMatchButton.hidden = false;
-});
-
-document.querySelectorAll(".space-option").forEach((button) => {
-  button.addEventListener("click", () => {
-    selectedSpaceId = button.dataset.spaceId;
-    document.querySelectorAll(".space-option").forEach((option) => option.setAttribute("aria-checked", String(option === button)));
-    continueToAvatarButton.disabled = false;
-  });
+familyKeyForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (familyKeyInput.value.trim().toUpperCase() !== DEMO_FAMILY_KEY) {
+    keyError.hidden = false;
+    familyKeyInput.setAttribute("aria-invalid", "true");
+    return;
+  }
+  keyError.hidden = true;
+  familyKeyInput.removeAttribute("aria-invalid");
+  familyKeyInput.value = "";
+  setAuthStep("family");
+  continueToAvatarButton.focus();
 });
 
 continueToAvatarButton.addEventListener("click", () => {
-  if (!selectedSpaceId) return;
   setAuthStep("avatar");
-  document.querySelector(".role-option")?.focus();
+  document.querySelector(".avatar-option")?.focus();
 });
 
-document.querySelectorAll(".role-option").forEach((button) => {
+document.querySelectorAll(".avatar-option").forEach((button) => {
   button.addEventListener("click", () => {
-    selectedRole = button.dataset.role;
-    document.querySelectorAll(".role-option").forEach((option) => option.setAttribute("aria-checked", String(option === button)));
+    selectedAvatar = { kind: "preset", id: button.dataset.avatarId };
+    avatarUpload.value = "";
+    avatarUploadStatus.textContent = "PNG、JPEG 或 WebP，最大 2 MB；本地预览不会上传";
+    document.querySelectorAll(".avatar-option").forEach((option) => option.setAttribute("aria-checked", String(option === button)));
     enterFamilySpaceButton.disabled = false;
   });
 });
 
+avatarUpload.addEventListener("change", () => {
+  const file = avatarUpload.files?.[0];
+  if (!file) return;
+  if (!new Set(["image/png", "image/jpeg", "image/webp"]).has(file.type) || file.size > 2 * 1024 * 1024) {
+    avatarUpload.value = "";
+    avatarUploadStatus.textContent = "请选择 2 MB 以内的 PNG、JPEG 或 WebP 图片。";
+    return;
+  }
+  const reader = new FileReader();
+  reader.addEventListener("load", () => {
+    selectedAvatar = { kind: "upload", dataUrl: String(reader.result) };
+    document.querySelectorAll(".avatar-option").forEach((option) => option.setAttribute("aria-checked", "false"));
+    avatarUploadStatus.textContent = `已选择 ${file.name} · 仅在本地预览`;
+    enterFamilySpaceButton.disabled = false;
+  }, { once: true });
+  reader.readAsDataURL(file);
+});
+
 enterFamilySpaceButton.addEventListener("click", () => {
-  if (!selectedSpaceId || !selectedRole) return;
-  const session = { spaceId: selectedSpaceId, role: selectedRole, mode: "family" };
+  if (!selectedAvatar) return;
+  const session = { familyId: "demo-family", avatar: selectedAvatar };
   activeSession = session;
   persistDemoSession();
   showApplication(session);
-  showToast("已进入匹配到的家庭空间（本地演示）");
+  showToast("已进入匹配到的家庭（本地演示）");
 });
 
 document.querySelectorAll("[data-auth-back]").forEach((button) => {
@@ -197,14 +167,6 @@ document.querySelectorAll("[data-auth-back]").forEach((button) => {
 signOutButton.addEventListener("click", () => {
   window.sessionStorage.removeItem(DEMO_SESSION_KEY);
   showSignIn();
-});
-
-modeSwitch.addEventListener("click", () => {
-  if (!activeSession) return;
-  const fromMode = activeSession.mode;
-  activeSession = { ...activeSession, mode: fromMode === "family" ? "work" : "family" };
-  persistDemoSession();
-  updateSessionPresentation({ animate: true, fromMode });
 });
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
