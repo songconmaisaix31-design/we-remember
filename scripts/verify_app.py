@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -9,6 +10,12 @@ JS = (ROOT / "app" / "app.js").read_text(encoding="utf-8")
 OPENAPI = (ROOT / "contracts" / "channel-gateway.openapi.yaml").read_text(encoding="utf-8")
 GATEWAY_DOC = (ROOT / "docs" / "integration-gateway.md").read_text(encoding="utf-8")
 AVATAR_ASSET_ROOT = ROOT / "app" / "assets" / "family-work"
+ROBOT_ROOT = ROOT / "modules" / "robot"
+ROBOT_CONTRACTS = (ROBOT_ROOT / "src" / "contracts.ts").read_text(encoding="utf-8")
+ROBOT_A3 = (ROBOT_ROOT / "src" / "a3-http-adapter.ts").read_text(encoding="utf-8")
+ROBOT_SERVICE = (ROBOT_ROOT / "src" / "notification-service.ts").read_text(encoding="utf-8")
+ROBOT_DOC = (ROOT / "docs" / "robot-a3-integration.md").read_text(encoding="utf-8")
+ROBOT_PACKAGE = json.loads((ROBOT_ROOT / "package.json").read_text(encoding="utf-8"))
 
 
 def require(source: str, fragment: str, reason: str) -> None:
@@ -55,6 +62,38 @@ require(OPENAPI, "X-WR-Content-SHA256", "signed body hash")
 require(OPENAPI, "additionalProperties: false", "strict object schemas")
 require(GATEWAY_DOC, "Personal WeChat / ClawBot", "personal WeChat ClawBot boundary")
 require(GATEWAY_DOC, "durable inbox claim", "durable event claim boundary")
+require(ROBOT_CONTRACTS, "interface RobotSpeechPort", "provider-neutral robot speech port")
+require(ROBOT_CONTRACTS, 'state: "accepted_unverified"', "unverified acceptance state")
+require(ROBOT_SERVICE, "#tail: Promise<void>", "serialized robot announcement queue")
+require(ROBOT_A3, 'const PLAY_PATH = "/rpc/aimdk.protocol.TTSService/PlayTTS"', "official A3 PlayTTS path")
+require(ROBOT_A3, 'priority_level: "INTERACTION_L6"', "official A3 priority field")
+require(ROBOT_A3, "is_interrupted: request.interruptCurrent", "official A3 interruption field")
+require(ROBOT_A3, "value.tts_status.tts_status", "nested A3 status parsing")
+require(ROBOT_A3, "observedActiveStatus", "truthful completion evidence guard")
+require(ROBOT_DOC, "v3.2 standard-A3 compatibility is not claimed", "unverified-version boundary")
+
+for required_robot_file in (
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    ".env.example",
+    "README.md",
+    "src/fake-adapter.ts",
+    "scripts/smoke-a3.ts",
+    "test/a3-http-adapter.test.ts",
+):
+    if not (ROBOT_ROOT / required_robot_file).is_file():
+        raise AssertionError(f"Missing robot module file: modules/robot/{required_robot_file}")
+
+for forbidden_robot_fragment in ('/rpc/pb:', 'speaker:', 'Record<string, any>'):
+    if forbidden_robot_fragment in ROBOT_A3 or forbidden_robot_fragment in ROBOT_CONTRACTS:
+        raise AssertionError(f"Forbidden HandOff coupling in robot module: {forbidden_robot_fragment}")
+
+if ROBOT_PACKAGE.get("dependencies"):
+    raise AssertionError("Robot module runtime must remain dependency-free")
+
+if "@we-remember/robot-adapter" in HTML or "@we-remember/robot-adapter" in JS:
+    raise AssertionError("Static browser prototype must not import the physical robot module")
 
 for removed_fragment in ('id="feishu-sign-in"', 'id="mode-switch"', 'data-visual-mode="family"', "ROLE_ASSETS"):
     if removed_fragment in HTML or removed_fragment in JS:

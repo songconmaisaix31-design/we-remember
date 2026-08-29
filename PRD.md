@@ -84,6 +84,21 @@ Connection acceptance criteria:
 - External identities and conversations remain unbound until an authenticated, short-lived pairing flow succeeds.
 - Platform acknowledgement, application acceptance, provider delivery, reading, and human confirmation are displayed as separate states.
 
+## Physical robot notification output
+
+An AgiBot Expedition A3 can act as an optional shared-space audio output after a notification has already passed product authorization and confirmation. It is not an identity provider, Agent, schedule authority, consent engine, or source of completion truth.
+
+Robot acceptance criteria:
+
+- Core scheduling and notification code depends on a provider-neutral robot speech port, never AimDK response types or URLs.
+- The A3 implementation is an edge adapter selected by deployment configuration and disabled by default.
+- A request identifies an authorized shared physical location rather than pretending that a room broadcast reached one named person.
+- Templates are allowlisted, typed, and bounded to the official 1024-byte TTS limit.
+- Concurrent announcements are serialized per adapter instance.
+- Provider acceptance without playback evidence, verified playback completion, timeout, cancellation, and failure remain distinct results.
+- No live robot request runs without an explicit operator smoke-test confirmation and an explicitly configured private-network base URL.
+- Local audio and neck motion remain separate future adapters until their exact device contracts are verified; they are not silently simulated.
+
 ## Visual source of truth
 
 The interaction language references the public `davidwang.space` experience as inspected on 2026-08-29:

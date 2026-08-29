@@ -18,6 +18,15 @@ Use the public fixture code `DEMO-HOME` to test entry. It is not a production se
 python -B scripts/verify_app.py
 ```
 
+The decoupled AgiBot A3 output module lives under `modules/robot/` and has its own dependency lock and checks:
+
+```powershell
+cd modules/robot
+npm ci
+npm run check
+npm test
+```
+
 This is a product interaction prototype, not a production calendar, Agent, transcription service, or notification provider. See [PRD.md](PRD.md), [Tech-Spec.md](Tech-Spec.md), and [API-CONTRACT.md](API-CONTRACT.md).
 
 The custom-bot HTTP source of truth is [contracts/channel-gateway.openapi.yaml](contracts/channel-gateway.openapi.yaml). Platform routing and security boundaries are documented in [docs/integration-gateway.md](docs/integration-gateway.md). No platform credentials are stored in the repository.
@@ -25,3 +34,5 @@ The custom-bot HTTP source of truth is [contracts/channel-gateway.openapi.yaml](
 The default avatar library contains only the 12 static `family.svg` and `work.svg` endpoints under `app/assets/family-work/`. Transition SVGs are excluded, and choosing a professional form does not create or select a work workspace. Review the bundled attribution note before external distribution.
 
 Run `powershell -ExecutionPolicy Bypass -File scripts/check_channel_clis.ps1` to emit a credential-free local readiness report for Feishu, DingTalk, and the ClawBot host. See [docs/cli-integration-runbook.md](docs/cli-integration-runbook.md) before starting any event consumer or outbound send.
+
+Robot integration boundaries, corrected AimDK v3.1 request shapes, and the explicit live smoke-test gate are documented in [docs/robot-a3-integration.md](docs/robot-a3-integration.md). No robot network call is made by the browser prototype.

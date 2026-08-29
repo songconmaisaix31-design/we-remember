@@ -8,6 +8,7 @@
 - The prototype connection center presents separate WeCom and personal-WeChat ClawBot installations alongside Feishu, DingTalk, and custom bots. Local Feishu and DingTalk CLIs are authenticated out of process; the page and repository never receive their credentials.
 - First entry now uses the explicitly public `DEMO-HOME` family-key fixture, confirms one matched family, and requires a preset or bounded local-upload avatar before entry. The browser clears the typed key after matching and stores only the fictional family ID and avatar in `sessionStorage`.
 - The application focuses on one family domain. It has no work workspace or family/work identity switch. Its default avatar library reuses all 12 static family/professional SVG endpoints, while transition SVGs remain excluded.
+- `modules/robot/` is an isolated TypeScript package for physical robot notification output. It defines a provider-neutral speech port, typed templates, a serial coordinator, a fake adapter, and a disabled-by-default AgiBot A3 HTTP adapter; the browser application does not call the robot.
 
 ## Durable Decisions
 
@@ -31,3 +32,6 @@
 - Feishu remains an optional connection-center channel and local developer CLI; it is not a required end-user login provider.
 - Production family-key login uses high-entropy revocable keys, server-side keyed hashes, uniform failure responses, and rate limits. One active key resolves exactly one family, and raw key material is never logged, returned, or persisted in the browser.
 - Avatar choices include allowlisted IDs for all six roles in both static forms plus bounded photo upload. The `work` suffix is presentation-only and never changes domain or authorization. Production uploads must be decoded and re-encoded, stripped of metadata, and represented in sessions by opaque asset IDs.
+- Robot output is a shared-space broadcast, never member delivery or completion proof. Product code owns authorization, durable outbox idempotency, retries, audit, and escalation; the robot module owns typed rendering, 1024-byte validation, per-process serialization, bounded provider polling, cancellation, and safe result mapping.
+- The A3 adapter follows the official standard-A3 v3.1 TTS contract rather than the draft HandOff sample: HTTP paths omit `pb:/`, the client supplies `trace_id`, status is nested, and delivery requires explicit `End` or observed active playback followed by `NOTInQue`. `NOTInQue` without active evidence is `accepted_unverified`; v3.2 remains unverified until a real standard-A3 smoke test.
+- Live A3 smoke testing is fail-closed behind explicit deployment configuration and `ROBOT_A3_SMOKE_CONFIRM=PLAY_AUDIO_ON_A3`. Do not store device endpoints with credentials or run neck motion before a separate motion-safety review and an exact device contract.

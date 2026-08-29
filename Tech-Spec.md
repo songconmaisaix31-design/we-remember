@@ -15,6 +15,7 @@ The prototype is a dependency-free static web application:
 - `docs/cli-integration-runbook.md`: credential-free CLI bootstrap and runtime handoff rules.
 - `scripts/check_channel_clis.ps1`: safe local readiness check for `lark-cli`, `dws`, and OpenClaw without exposing account identifiers or credentials.
 - `scripts/verify_app.py`: structural contract checks that require no installed packages.
+- `modules/robot/`: isolated TypeScript notification port, template renderer, serial coordinator, fake adapter, and A3 HTTP adapter.
 
 This is the shortest reliable path for validating the conversation and motion model while the repository has no established framework or package manager. It avoids choosing a production stack before identity, persistence, Agent, calendar, and notification boundaries are frozen.
 
@@ -85,6 +86,23 @@ Inbound payloads cannot select `memberId`, `spaceId`, role, visibility, or autho
 
 `lark-cli` and `dws` are provisioning, discovery, and bounded verification tools. Production event consumption and delivery run in dedicated adapters with explicit installation identities, durable inbox/outbox state, and secret-manager references. The Tencent ClawBot plugin remains an OpenClaw sidecar and is bridged through the signed gateway; its local account state never enters the browser or product database.
 
+## Robot adapter boundary
+
+```text
+authorized notification intent
+  -> typed template renderer
+  -> serial robot notification service
+  -> RobotSpeechPort
+       |- FakeRobotSpeechAdapter (tests)
+       `- A3HttpSpeechAdapter (AimDK edge)
+  -> structured delivery evidence
+  -> application-owned outbox/log
+```
+
+The module has no dependency on the browser prototype, database, member model, scheduler, or channel gateway. The application owns authorization, durable idempotency, retries, audit, escalation, and recipient policy. The module owns text validation, per-process serialization, AimDK request/response validation, bounded polling, cancellation, and provider-neutral results.
+
+The official A3 v3.1 contract corrects several HandOff examples: RPC URLs use `/rpc/aimdk.protocol...` without `pb:/`; the client supplies `trace_id`; the request uses `priority_level` and `is_interrupted`, not `speaker`; status is nested under `tts_status.tts_status`; and successful polling commonly ends at `TTSStatusType_NOTInQue` because `End` is brief. v3.2 compatibility remains unverified until a standard A3 device smoke test passes.
+
 ## Motion rules
 
 - Standard state transitions: 180–260 ms, ease-out.
@@ -97,6 +115,10 @@ Inbound payloads cannot select `memberId`, `spaceId`, role, visibility, or autho
 
 ```powershell
 python -B scripts/verify_app.py
+cd modules/robot
+npm ci
+npm run check
+npm test
 python -m http.server 4173
 ```
 

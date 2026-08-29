@@ -121,13 +121,39 @@ interface ConfirmScheduleDraftResponse {
   status: "scheduled";
   notificationReceipts: Array<{
     recipientId: string;
-    channel: "in_app" | "feishu" | "dingtalk" | "wecom" | "wechat_clawbot";
+    channel: "in_app" | "feishu" | "dingtalk" | "wecom" | "wechat_clawbot" | "robot_a3";
     status: "queued" | "not_authorized" | "failed";
   }>;
 }
 ```
 
 Confirmation is atomic: persist the event and notification outbox entries together. A revision conflict returns `409`; the same idempotency key returns the original result.
+
+## Robot notification port
+
+This is an internal application-to-adapter contract, not a public HTTP endpoint:
+
+```ts
+type RobotTemplateData =
+  | { template: "care_reminder"; data: { subjectName?: string; title: string; instruction: string } }
+  | { template: "escalation"; data: { subjectName: string; title: string } }
+  | { template: "handover_confirm"; data: { domainName: string } };
+
+type RobotNotificationIntent = RobotTemplateData & {
+  intentId: string;
+  installationId: string;
+  audience: { kind: "shared_space"; locationId: string };
+  priority: "normal" | "high" | "urgent";
+};
+
+interface RobotSpeechPort {
+  speak(request: RobotSpeechRequest, signal?: AbortSignal): Promise<RobotSpeechEvidence>;
+  stop(providerTraceId: string, signal?: AbortSignal): Promise<void>;
+}
+```
+
+`intentId` is application-owned idempotency identity; an adapter cannot provide durable deduplication. A shared-space broadcast never proves that a named member heard, understood, consented to, or completed the reminder. Adapter errors expose stable codes and safe metadata only, not device response bodies or spoken text.
+Robot results distinguish `accepted_unverified`, `delivered`, `timed_out`, `cancelled`, and `failed`. `accepted_unverified` is required when AimDK reports queue absence without any observed active playback state.
 
 ## Channel gateway
 

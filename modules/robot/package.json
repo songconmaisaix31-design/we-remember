@@ -1,0 +1,18 @@
+{
+  "name": "@we-remember/robot-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": ["src", "README.md"],
+  "scripts": {
+    "check": "tsc -p tsconfig.json",
+    "test": "node --test --test-timeout=5000 test/*.test.ts",
+    "smoke:a3": "node scripts/smoke-a3.ts"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "typescript": "7.0.2"
+  }
+}
