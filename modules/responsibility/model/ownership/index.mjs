@@ -36,8 +36,8 @@ export const HANDOVER_STATUSES = Object.freeze([
 
 export const HANDOVER_TRANSITION_MATRIX = Object.freeze({
   draft: Object.freeze(["pending_info", "pending_ack"]),
-  pending_info: Object.freeze(["pending_info", "pending_ack"]),
-  pending_ack: Object.freeze(["accepted", "declined", "expired"]),
+  pending_info: Object.freeze(["pending_info", "pending_ack", "expired"]),
+  pending_ack: Object.freeze(["pending_info", "pending_ack", "accepted", "declined", "expired"]),
   accepted: Object.freeze([]),
   declined: Object.freeze([]),
   expired: Object.freeze([]),

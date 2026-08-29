@@ -22,6 +22,15 @@ const members = Object.freeze([
 
 const domain = Object.freeze({ familyId, accountableOwnerId: "mother" });
 
+const expectedHandoverTransitionMatrix = Object.freeze({
+  draft: Object.freeze(["pending_info", "pending_ack"]),
+  pending_info: Object.freeze(["pending_info", "pending_ack", "expired"]),
+  pending_ack: Object.freeze(["pending_info", "pending_ack", "accepted", "declined", "expired"]),
+  accepted: Object.freeze([]),
+  declined: Object.freeze([]),
+  expired: Object.freeze([]),
+});
+
 test("resolves a member only within the requested family", () => {
   const result = resolveMemberInFamily(members, familyId, "mother");
   assert.equal(result.ok, true);
@@ -74,9 +83,11 @@ test("compares current positive versions and rejects stale versions", () => {
 });
 
 test("allows every transition in the exact frozen handover matrix", () => {
-  for (const [fromStatus, allowedTargets] of Object.entries(HANDOVER_TRANSITION_MATRIX)) {
+  assert.deepEqual(HANDOVER_TRANSITION_MATRIX, expectedHandoverTransitionMatrix);
+
+  for (const [fromStatus, allowedTargets] of Object.entries(expectedHandoverTransitionMatrix)) {
     for (const toStatus of allowedTargets) {
-      assert.equal(isAllowedHandoverTransition(fromStatus, toStatus), true);
+      assert.equal(isAllowedHandoverTransition(fromStatus, toStatus), true, `${fromStatus} -> ${toStatus}`);
       assert.deepEqual(assertHandoverTransition(fromStatus, toStatus), {
         ok: true,
         code: OWNERSHIP_RESULT_CODES.TRANSITION_ALLOWED,
@@ -88,14 +99,29 @@ test("allows every transition in the exact frozen handover matrix", () => {
 test("rejects every transition outside the frozen handover matrix", () => {
   for (const fromStatus of HANDOVER_STATUSES) {
     for (const toStatus of HANDOVER_STATUSES) {
-      if (!HANDOVER_TRANSITION_MATRIX[fromStatus].includes(toStatus)) {
+      if (!expectedHandoverTransitionMatrix[fromStatus].includes(toStatus)) {
+        assert.equal(isAllowedHandoverTransition(fromStatus, toStatus), false, `${fromStatus} -> ${toStatus}`);
         assert.equal(
           assertHandoverTransition(fromStatus, toStatus).code,
           OWNERSHIP_ERROR_CODES.TRANSITION_FORBIDDEN,
+          `${fromStatus} -> ${toStatus}`,
         );
       }
     }
   }
+});
+
+test("allows proposal revision with acknowledgement invalidation to retain either pending status", () => {
+  assert.equal(isAllowedHandoverTransition("pending_info", "pending_info"), true);
+  assert.equal(isAllowedHandoverTransition("pending_ack", "pending_ack"), true);
+});
+
+test("allows proposal revision to reopen missing information from pending acknowledgement", () => {
+  assert.equal(isAllowedHandoverTransition("pending_ack", "pending_info"), true);
+});
+
+test("allows an overdue pending-information handover to expire", () => {
+  assert.equal(isAllowedHandoverTransition("pending_info", "expired"), true);
 });
 
 test("keeps terminal handover states closed", () => {
