@@ -47,7 +47,11 @@ require(HTML, 'class="schedule-panel surface lift-card"', "schedule container el
 require(HTML, 'class="people-panel surface lift-card"', "people container elevation")
 require(HTML, 'class="receipts-panel surface lift-card"', "receipt container elevation")
 require(HTML, 'data-create-with-agent', "route back to Agent")
-require(HTML, 'class="app-shell" data-app-state="idle">', "direct-entry application shell")
+require(HTML, 'id="demo-login"', "username-only demo login gate")
+require(HTML, 'id="demo-username"', "demo username input")
+require(HTML, 'id="demo-login-error"', "login error live region")
+require(HTML, 'id="demo-sign-out"', "demo sign-out control")
+require(HTML, 'class="app-shell" data-app-state="idle" hidden inert>', "signed-out inert application shell")
 require(HTML, 'class="brand-intro" id="brand-intro" aria-hidden="true"', "one-shot brand opening")
 require(HTML, 'src="assets/brand/mom-to-we-remember.svg" alt=""', "opening animation asset")
 require(HTML, 'class="brand-logo" src="assets/brand/we-remember-logo.svg" alt="We Remember"', "static brand logo")
@@ -66,7 +70,12 @@ require(JS, 'mode === "voice_message"', "voice auto-send branch")
 require(JS, 'dataset.confirmed = "true"', "confirmation gate")
 require(JS, "appendTimelineEvent(draft)", "confirmed schedule sync")
 require(JS, "setActiveView", "shared application view routing")
-require(JS, 'document.body.dataset.sessionStatus = "ready"', "direct-entry ready state")
+require(JS, 'DEMO_SESSION_STORAGE_KEY = "we-remember.demo-session.v1"', "versioned demo session key")
+require(JS, 'window.sessionStorage.setItem(DEMO_SESSION_STORAGE_KEY', "same-tab demo session storage")
+require(JS, 'profileName.textContent = username', "safe username rendering")
+require(JS, 'actorId: "mother"', "fixed responsibility fixture actor")
+require(JS, 'appShell.inert = true', "signed-out shell focus isolation")
+require(JS, 'window.location.reload()', "safe sign-out runtime reset")
 require(CSS, "@media (max-width: 520px)", "mobile breakpoint")
 require(CSS, "@media (prefers-reduced-motion: reduce)", "reduced-motion support")
 require(CSS, "translateY(-4px)", "reference-inspired card lift")
@@ -126,17 +135,20 @@ for removed_fragment in (
     'id="mode-switch"',
     'data-visual-mode="family"',
     "ROLE_ASSETS",
-    'id="auth-gate"',
     'id="family-key-input"',
     'id="avatar-step"',
     'id="avatar-upload"',
-    'id="sign-out-button"',
     'class="brand-mark"',
-    "DEMO_SESSION_KEY",
     "DEMO_FAMILY_KEY",
 ):
     if removed_fragment in HTML or removed_fragment in JS:
         raise AssertionError(f"Removed identity/workspace direction still present: {removed_fragment}")
+
+if re.search(r'<input\b[^>]*\btype=["\']password["\']', HTML, flags=re.IGNORECASE):
+    raise AssertionError("Hackathon username gate must not contain a password input")
+
+if 'username' in JS[JS.index('const requestResponsibilityAnalysis'):JS.index('const appendResponsibilitySuggestion')]:
+    raise AssertionError("Username must not enter the Responsibility API request")
 
 for view_name in ("agent", "schedule", "people", "integrations"):
     navigation_items = re.findall(

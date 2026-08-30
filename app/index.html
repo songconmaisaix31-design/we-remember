@@ -16,7 +16,21 @@
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
-    <div class="app-shell" data-app-state="idle">
+    <main class="demo-login surface" id="demo-login" aria-labelledby="demo-login-title">
+      <div class="demo-login-mark" aria-hidden="true">✦</div>
+      <p class="eyebrow">LOCAL HACKATHON DEMO</p>
+      <h1 id="demo-login-title">先告诉我们怎么称呼你</h1>
+      <p>这是本地黑客松演示：无需密码，用户名只用于本页展示，不是账户或身份认证。</p>
+      <form id="demo-login-form" novalidate>
+        <label for="demo-username">用户名</label>
+        <input id="demo-username" name="username" type="text" inputmode="text" autocomplete="username" maxlength="24" aria-describedby="demo-login-note demo-login-error" required />
+        <p id="demo-login-note">刷新当前标签页会恢复显示；关闭会话或退出后失效。</p>
+        <p id="demo-login-error" class="demo-login-error" role="alert" aria-live="assertive" hidden></p>
+        <button type="submit">进入本地演示 <span aria-hidden="true">→</span></button>
+      </form>
+    </main>
+
+    <div class="app-shell" data-app-state="idle" hidden inert>
       <aside class="identity-rail surface" aria-label="主导航">
         <div class="brand">
           <span class="brand-logo-viewport">
@@ -30,7 +44,7 @@
             <span class="presence" aria-label="Agent 在线">✦</span>
           </div>
           <div>
-            <strong id="profile-name">我</strong>
+            <strong id="profile-name">演示用户</strong>
             <span id="profile-space">我们的家 · 6 人</span>
           </div>
         </div>
@@ -54,6 +68,7 @@
           <span class="status-dot"></span>
           <p><strong>本地交互原型</strong><br />日程和通知仅保存在本页</p>
         </div>
+        <button class="demo-sign-out" id="demo-sign-out" type="button">退出演示</button>
       </aside>
 
       <main class="workspace">
@@ -84,10 +99,11 @@
               <strong>时间 Agent</strong>
               <p>你可以打字，也可以直接说。例如：“周六下午三点带妈妈复诊，提前一天提醒我和爸爸。”</p>
               <div class="suggestions" aria-label="示例指令">
-                <button type="button" data-prompt="周六下午三点带妈妈复诊，提前一天提醒我和爸爸">安排复诊</button>
-                <button type="button" data-prompt="明晚七点全家一起吃饭，提前两小时通知所有人">安排家庭晚餐</button>
-                <button type="button" data-prompt="奶奶复诊的安排一直由我负责，我有点撑不住了，想请爸爸完整接手">演示责任交接</button>
+                <button type="button" data-prompt="远方照护父母：下周复诊、每日用药和接送怎么安排，谁负责跟进？">远方照护父母</button>
+                <button type="button" data-prompt="明晚七点下班后全家吃晚餐，家人有哪些、下一步谁确认？">下班家庭晚餐</button>
+                <button type="button" data-prompt="冲突后想重新沟通：先整理事实、情绪和边界，默认私密，只有明确确认才分享。">重新沟通边界</button>
               </div>
+              <p class="scenario-boundary">场景仅用于本地演示，不代表医疗、心理服务、危机干预或真实通知已完成。</p>
             </div>
           </div>
 

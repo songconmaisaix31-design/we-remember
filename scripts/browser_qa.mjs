@@ -92,12 +92,37 @@ if (scenario !== "opening" && scenario !== "opening-complete" && scenario !== "r
   }
 }
 
-async function assertDirectEntry() {
+async function assertDemoGate() {
+  const gate = JSON.parse(await evaluate(`JSON.stringify({
+    gateVisible: !document.querySelector('#demo-login')?.hidden,
+    appHidden: document.querySelector('.app-shell')?.hidden,
+    appInert: document.querySelector('.app-shell')?.inert,
+    usernameType: document.querySelector('#demo-username')?.type,
+    passwordInputAbsent: document.querySelector('input[type="password"]') === null
+  })`));
+  if (!gate.gateVisible || !gate.appHidden || !gate.appInert || gate.usernameType !== 'text' || !gate.passwordInputAbsent) {
+    throw new Error(`Demo login gate failed: ${JSON.stringify(gate)}`);
+  }
+  return gate;
+}
+
+async function signInDemo(username = '本地演示用户') {
+  await evaluate(`(() => {
+    const input = document.querySelector('#demo-username');
+    input.value = ${JSON.stringify(username)};
+    document.querySelector('#demo-login-form').requestSubmit();
+    return true;
+  })()`);
+  await new Promise((resolve) => setTimeout(resolve, 80));
+}
+
+async function assertSignedInEntry() {
   const entry = JSON.parse(await evaluate(`JSON.stringify({
     appVisible: !document.querySelector('.app-shell')?.hidden,
     agentVisible: !document.querySelector('#agent-view')?.hidden,
-    onboardingAbsent: document.querySelector('#auth-gate, #family-key-input, #avatar-step, #avatar-upload') === null,
-    ready: document.body.dataset.sessionStatus === 'ready',
+    gateHidden: document.querySelector('#demo-login')?.hidden,
+    ready: document.body.dataset.sessionStatus === 'demo_ready',
+    displayedUsername: document.querySelector('#profile-name')?.textContent,
     defaultAvatar: document.querySelector('#profile-avatar')?.getAttribute('src'),
     roleAvatarCount: document.querySelectorAll('[data-role-avatar]').length,
     roleAvatarsLoaded: [...document.querySelectorAll('[data-role-avatar]')].every(image => image.complete && image.naturalWidth > 0),
@@ -111,10 +136,10 @@ async function assertDirectEntry() {
     'assets/family-work/son/family.svg',
     'assets/family-work/grandmother/family.svg'
   ];
-  if (!entry.appVisible || !entry.agentVisible || !entry.onboardingAbsent || !entry.ready
+  if (!entry.appVisible || !entry.agentVisible || !entry.gateHidden || !entry.ready || entry.displayedUsername !== '本地演示用户'
     || entry.defaultAvatar !== expectedMemberAvatars[0] || entry.roleAvatarCount !== 11
     || !entry.roleAvatarsLoaded || JSON.stringify(entry.memberAvatarSources) !== JSON.stringify(expectedMemberAvatars)) {
-    throw new Error(`Direct entry failed: ${JSON.stringify(entry)}`);
+    throw new Error(`Signed-in demo entry failed: ${JSON.stringify(entry)}`);
   }
   return entry;
 }
@@ -448,7 +473,46 @@ async function assertContainerExperience(selector, minimumRadius, minimumPadding
   return { radius: before.radius, padding: before.padding, lifted: true, shadowChanged: true };
 }
 
-const directEntry = await assertDirectEntry();
+if (await evaluate("!document.querySelector('.app-shell').hidden")) {
+  await evaluate(`(() => { sessionStorage.removeItem('we-remember.demo-session.v1'); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
+const demoGate = await assertDemoGate();
+
+if (scenario === 'demo-login') {
+  const invalidInputs = [];
+  for (const value of ['', 'a'.repeat(25), 'bad\u0001name']) {
+    const result = JSON.parse(await evaluate(`(() => {
+      const input = document.querySelector('#demo-username');
+      input.value = ${JSON.stringify(value)};
+      document.querySelector('#demo-login-form').requestSubmit();
+      return JSON.stringify({ appHidden: document.querySelector('.app-shell').hidden, errorVisible: !document.querySelector('#demo-login-error').hidden });
+    })()`));
+    if (!result.appHidden || !result.errorVisible) throw new Error(`Invalid username was accepted: ${JSON.stringify({ value, result })}`);
+    invalidInputs.push(result);
+  }
+  await signInDemo();
+  const signedIn = await assertSignedInEntry();
+  await send('Page.reload', { ignoreCache: true });
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const restored = JSON.parse(await evaluate(`JSON.stringify({
+    appVisible: !document.querySelector('.app-shell')?.hidden,
+    username: document.querySelector('#profile-name')?.textContent,
+    scrollWidth: document.documentElement.scrollWidth,
+    viewportWidth: window.innerWidth
+  })`));
+  if (!restored.appVisible || restored.username !== '本地演示用户' || restored.scrollWidth > restored.viewportWidth) {
+    throw new Error(`Demo session restore failed: ${JSON.stringify(restored)}`);
+  }
+  await evaluate(`document.querySelector('#demo-sign-out').click(); true`);
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const signedOut = await assertDemoGate();
+  await captureResult({ demoGate, invalidInputs, signedIn, restored, signedOut });
+  process.exit(0);
+}
+
+await signInDemo();
+const directEntry = await assertSignedInEntry();
 
 if (scenario === "opening") {
   await captureResult({ openingState, directEntry });

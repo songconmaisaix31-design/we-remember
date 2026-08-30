@@ -22,8 +22,71 @@ const scheduleTodayCount = document.querySelector("#schedule-today-count");
 const scheduleNotificationCount = document.querySelector("#schedule-notification-count");
 const receiptTotalCount = document.querySelector("#receipt-total-count");
 const brandIntro = document.querySelector("#brand-intro");
+const demoLogin = document.querySelector("#demo-login");
+const demoLoginForm = document.querySelector("#demo-login-form");
+const demoUsernameInput = document.querySelector("#demo-username");
+const demoLoginError = document.querySelector("#demo-login-error");
+const demoSignOut = document.querySelector("#demo-sign-out");
+const profileName = document.querySelector("#profile-name");
+const DEMO_SESSION_STORAGE_KEY = "we-remember.demo-session.v1";
+const DEMO_SESSION_VERSION = 1;
+const DEMO_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 let activeView = "agent";
 let selectedMember = "all";
+
+const normalizeDemoUsername = (value) => String(value).trim();
+
+const isValidDemoUsername = (value) => (
+  value.length >= 1 && value.length <= 24 && !/[\u0000-\u001F\u007F-\u009F]/u.test(value)
+);
+
+const readDemoSession = () => {
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(DEMO_SESSION_STORAGE_KEY) ?? "");
+    if (
+      parsed?.version !== DEMO_SESSION_VERSION ||
+      typeof parsed?.username !== "string" ||
+      typeof parsed?.expiresAt !== "number" ||
+      parsed.expiresAt <= Date.now()
+    ) return null;
+    const username = normalizeDemoUsername(parsed.username);
+    return isValidDemoUsername(username) ? { username, expiresAt: parsed.expiresAt } : null;
+  } catch {
+    return null;
+  }
+};
+
+const clearDemoSession = () => {
+  try { window.sessionStorage.removeItem(DEMO_SESSION_STORAGE_KEY); } catch {}
+};
+
+const showDemoLogin = (message = "") => {
+  clearDemoSession();
+  appShell.hidden = true;
+  appShell.inert = true;
+  demoLogin.hidden = false;
+  demoLoginError.hidden = !message;
+  demoLoginError.textContent = message;
+  window.setTimeout(() => demoUsernameInput.focus(), 0);
+};
+
+const showDemoApplication = ({ username }) => {
+  profileName.textContent = username;
+  demoLogin.hidden = true;
+  appShell.hidden = false;
+  appShell.inert = false;
+  document.body.dataset.sessionStatus = "demo_ready";
+};
+
+const persistDemoSession = (username) => {
+  const session = { version: DEMO_SESSION_VERSION, username, expiresAt: Date.now() + DEMO_SESSION_TTL_MS };
+  try {
+    window.sessionStorage.setItem(DEMO_SESSION_STORAGE_KEY, JSON.stringify(session));
+    return session;
+  } catch {
+    return null;
+  }
+};
 
 const responsibilityMemberLabels = Object.freeze({
   mother: "妈妈",
@@ -449,6 +512,29 @@ integrationsDialog.addEventListener("click", (event) => {
 
 integrationsDialog.addEventListener("close", () => setActiveNavigation(activeView));
 
+demoLoginForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const username = normalizeDemoUsername(demoUsernameInput.value);
+  if (!isValidDemoUsername(username)) {
+    demoLoginError.textContent = "请输入 1–24 个字符的用户名，且不要包含控制字符。";
+    demoLoginError.hidden = false;
+    demoUsernameInput.focus();
+    return;
+  }
+  const session = persistDemoSession(username);
+  if (!session) {
+    showDemoLogin("无法保存本地演示会话，请检查浏览器存储设置后重试。");
+    return;
+  }
+  demoLoginError.hidden = true;
+  showDemoApplication(session);
+});
+
+demoSignOut.addEventListener("click", () => {
+  clearDemoSession();
+  window.location.reload();
+});
+
 document.querySelectorAll("[data-channel-detail]").forEach((button) => {
   button.setAttribute("aria-expanded", "false");
   button.addEventListener("click", () => {
@@ -459,7 +545,7 @@ document.querySelectorAll("[data-channel-detail]").forEach((button) => {
   });
 });
 
-document.body.dataset.sessionStatus = "ready";
+document.body.dataset.sessionStatus = "signed_out";
 const reducedMotionPreference = window.matchMedia("(prefers-reduced-motion: reduce)");
 let brandIntroDismissed = false;
 let brandIntroFallbackId;
@@ -487,3 +573,6 @@ if (!brandIntro || reducedMotionPreference.matches) {
 renderSharedState();
 setActiveView("agent", { focusHeading: false });
 autosize();
+const restoredDemoSession = readDemoSession();
+if (restoredDemoSession) showDemoApplication(restoredDemoSession);
+else showDemoLogin();
