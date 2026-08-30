@@ -104,6 +104,14 @@ Cross-page acceptance criteria:
 
 Out of scope for this delivery: backend persistence, real member administration, provider credentials, real notification sending, calendar synchronization, and production authentication.
 
+## Hackathon demo username session
+
+The local hackathon demo starts signed out and presents a keyboard-operable username-only gate before the application shell. A trimmed username must be 1–24 characters and contain no control characters. There is no password, account lookup, real authentication, or production identity claim: the value is used only to label the current browser page.
+
+The versioned `sessionStorage` demo session restores after refresh in the same tab and expires when that tab/session closes. Invalid, malformed, or expired stored values fail closed to signed out. Signing out clears the demo session and returns to the gate; reload is a safe way to reset local runtime state. The username is never a member ID, actor ID, or authorization input and is never sent to the schedule or responsibility API. The Responsibility API remains the fixed `mother` Fixture demonstration, while mother/father/grandmother perspective controls remain explicitly labeled as presentation demos, not authentication.
+
+After sign-in, the existing quick-prompt area presents three product-aligned, non-consequential local demo scenarios: remote care for parents (follow-up, medication, transport, and responsibility ownership), weekday family dinner (time, family, and next action), and repairing communication after conflict (facts, feelings, and private-by-default boundaries that require explicit consent before sharing). They do not use source-person names as accounts and never claim medical care, therapy, crisis intervention, or real notification completion.
+
 ## Physical robot notification output
 
 An AgiBot Expedition A3 can act as an optional shared-space audio output after a notification has already passed product authorization and confirmation. It is not an identity provider, Agent, schedule authority, consent engine, or source of completion truth.

@@ -29,10 +29,12 @@ The application does not use the looping animation as its persistent rail logo. 
 ## Prototype entry state
 
 ```text
-page_load -> ready -> agent_view
+page_load -> signed_out -> username_gate -> demo_ready -> agent_view
 ```
 
-The prototype has no authentication or avatar-setup state and writes no identity session to browser storage. It uses fixed fictional family context, `mother/work.svg` as the default personal avatar, and the matching family-form SVG for each named member. Production identity still requires the backend contract because rate limiting, keyed hashing, binding resolution, secure session issuance, and revocation cannot be implemented safely in a static browser application.
+The prototype has a local username-only hackathon gate, not production authentication or avatar setup. It stores only a versioned demo display session in `sessionStorage`: valid sessions restore on same-tab refresh; malformed, stale, or invalid values result in signed out; closing the tab/session ends the session. A username is trim-normalized, 1–24 characters, and rejects control characters. It is written through `textContent`, never interpolated as HTML, sent to APIs, mapped to `actorId`/`memberId`, or used for authorization. A clear sign-out control removes the session and returns to the gate.
+
+The signed-in shell uses fixed fictional family context, `mother/work.svg` as the default presentation avatar, and matching family-form SVGs for named members. The responsibility endpoint continues to receive its fixed Fixture actor `mother`; perspective controls are demonstrations only. Production identity still requires the backend contract because rate limiting, keyed hashing, binding resolution, secure session issuance, and revocation cannot be implemented safely in a static browser application.
 
 ## State model
 
