@@ -1,52 +1,42 @@
 # Project Memory
 
-## Current State
+This root file is the current governance memory for repository startup. The longer [archived historical memory](docs/history/MEMORY.md) preserves earlier implementation decisions and evidence, but it is not the current status, release record, or startup governance file.
 
-- As of 2026-08-29, the repository contains a dependency-free SVG/HTML motion asset bundle under `svg-transition/`; no application framework or package manager is established.
-- `svg-transition/family-work-suite/` contains six roles with exact static family/work endpoints and two one-shot transition SVGs per role (24 SVGs total). The family forms use independent home activities rather than a child as an identity cue.
-- `app/` now contains a dependency-free conversational schedule UX prototype. Typed messages, live dictation, and auto-send voice messages lead to a confirmation-gated schedule draft; confirmation updates the in-page timeline and creates a truthful local notification receipt.
-- The prototype connection center presents separate WeCom and personal-WeChat ClawBot installations alongside Feishu, DingTalk, and custom bots. Local Feishu and DingTalk CLIs are authenticated out of process; the page and repository never receive their credentials.
-- The hackathon prototype uses a client-only username display session, not authentication: signed-out entry immediately shows and focuses the local gate while skipping the decorative opening, and a restored valid session may show the opening before the fixed fictional-family Agent shell. It has no family-key, family-confirmation, or avatar-setup flow; production family-key identity remains defined only by `API-CONTRACT.md`. Never store username values in project memory.
-- The application focuses on one family domain. It has no work workspace or family/work identity switch. The direct-entry UI uses existing static SVG assets only as presentation; transition SVGs remain excluded.
-- The repository root is the canonical engineering entry point. Root `package.json` provides `dev`, `check`, `test`, `demo`, and `ci`; GitHub Actions runs the same `npm run ci` gate with Node.js 24 and Python 3.13. Keep `app/`, `modules/responsibility/`, and `modules/robot/` as separate implementation boundaries rather than introducing a framework or workspace orchestrator.
-- `modules/robot/` is an isolated TypeScript package for physical robot notification output. It defines a provider-neutral speech port, typed templates, a serial coordinator, a fake adapter, and a disabled-by-default AgiBot A3 HTTP adapter; the browser application does not call the robot.
-- As of 2026-08-30, `modules/responsibility/` contains the dependency-free P0 responsibility domain, handover lifecycle and acceptance effects, consent-safe projections, AI suggestion validation, semantic reminder routing, optimistic in-memory Store, Service facade, golden fixtures, and a runnable end-to-end demo. The existing frontend has minimal responsibility-flow wiring through a same-origin HTTP API without a visual rebuild.
-- `app/assets/brand/` contains two transparent, dependency-free, looping SVG brand animations. The accepted `mom` tail frame is a 384-square two-line lockup with black `We`, black `Re` and `ber`, and orange `mem`; its glyphs are smooth cubic Bezier paths derived through high-resolution resampling of the supplied visual reference, while the raster, watermark, and background are not embedded. Preserve the optical bounds and verify edges at 2x device scale.
-- The application uses `we-remember-logo.svg` as its persistent static rail logo. `mom-to-we-remember.svg` is only a one-shot full-screen page opening; remove its layer and scroll lock after the CSS animation, and bypass it entirely under reduced motion.
-- The desktop Agent view uses a viewport-height grid with an internally scrolling conversation and a bottom-row composer; mobile keeps the composer fixed above the bottom navigation. Dynamic turns keep 32 px separation, follow-up cards keep 12 px separation from their Agent message, and textarea focus is shown on the composer surface instead of as an overlapping inner outline.
+## Durable project context
 
-## Durable Decisions
+- We Remember is an ACTIVE family scheduling and care-responsibility prototype originating from the SheNicest hackathon, where it was not awarded.
+- The product path is: describe a family need, form a non-consequential schedule or responsibility proposal, obtain explicit takeover confirmation, and only then transfer the accountable owner and eligible future reminders.
+- Private expression is private by default. A family projection may contain only separately consented facts; it must not expose raw private text.
+- The username session is display-only. It must never become an `actorId`, `memberId`, account, authentication, authorization, or API identity.
 
-- Add project-specific architecture, testing, and deployment decisions only after they are established.
-- Record secret locations only; never record secret values.
-- `ORCA_WORKTREE_LITE.md` is the source of truth for PRD-driven multi-agent development. `AGENTS.md` activates it when work can be split into genuinely independent tracks.
-- Each development track uses one long-lived agent, one worktree, one branch, and mutually exclusive `write_paths`; integration happens once in a separate worktree after track-level acceptance passes.
-- Keep coordination lightweight: use Git, relevant tests, and runnable behavior as evidence instead of creating custom scheduling or proof infrastructure.
-- The Working Woman source is Noun Project icon 7641720 by sentya irma. Keep attribution metadata in derived assets and confirm the Creative Commons attribution requirements before external distribution.
-- `svg-transition/working-woman-motion/working-woman-motion.svg` is the self-contained animated asset; `logo_motion.html` is its replayable QA showcase. The accepted vector fit uses three semantic paths and records alpha-aware IoU evidence in `outputs/`.
-- The mother role under `svg-transition/working-woman-mother/` is an original derivative that preserves the working-woman head as an identity anchor. It is intentionally child-free and uses an apron, saucepan, lid, and steam to show home cooking. Its bidirectional transitions use the laptop/saucepan area as the reveal focus, and their final frames must remain pixel-identical to the static role SVGs.
-- `svg-transition/family-role-suite/` extends the silhouette system with five pure-vector static roles: father/home repair, daughter/reading, son/skateboarding, grandfather/cane, and grandmother/knitting. Its preview reuses the canonical mother SVG rather than duplicating it; every role must remain distinguishable at 128 px and the 390 px preview must not overflow horizontally.
-- `svg-transition/family-role-suite/generate_family_work_suite.py` is the dependency-free source of truth for the family/work deliverables. Each transition must embed markup identical to its static endpoints, support reduced motion, hold on the destination, and pass the structural, 128 px, midpoint-motion, desktop, and true 390 px CDP checks before packaging.
-- Conversation is the primary schedule-entry model. Natural language or voice produces a non-consequential draft first; calendar writes and notification outbox work require explicit human confirmation.
-- The signed-in shell has four complete destinations: Agent, family schedule, family and notifications, and connection center. They share one in-memory event and receipt collection; only explicit Agent confirmation mutates it, and all notification routes and evidence remain clearly labeled local demo state.
-- `API-CONTRACT.md` defines the future transcription, schedule-draft, and atomic confirmation boundaries. The static prototype must not claim production transcription, identity resolution, calendar persistence, or message delivery.
-- The accepted visual direction reuses the reference site's stable identity rail, translucent card depth, subtle `translateY(-4px)` hover lift, and short state transitions without copying its imagery or branding. Preserve reduced-motion behavior and verify both 1440 px desktop and true 390 px screenshots.
-- `docs/container-motion-materials.md` is the canonical handoff inventory for implemented container materials, motion recipes, asset boundaries, accessibility behavior, and responsive QA. Keep it synchronized when a reusable container or motion pattern changes.
-- Brand-motion SVGs must remain single-file, transparent, script-free, externally dependency-free, and usable through `<img>` or inline markup. In the `mom` transition, the orange anchor stays on the final `mem` geometry while the surrounding letter paths fade in; it must not translate or scale, and the center `o` may only crossfade to the final `e`. Their reduced-motion state is the final correct wordmark.
-- `contracts/channel-gateway.openapi.yaml` is the canonical custom-bot transport contract. Requests use versioned HMAC-SHA256 over timestamp, nonce, method, path, and body hash; verified events enter a durable inbox before routing, and replies leave through an idempotent outbox.
-- Native platform SDKs stay inside WeCom, Feishu, and DingTalk adapters. External payloads cannot select internal member, space, role, visibility, consent, or authority. Identity and conversation bindings are explicit and revocable.
-- Personal WeChat uses Tencent's `@tencent-weixin/openclaw-weixin` ClawBot plugin as an isolated OpenClaw sidecar. Treat its published surface as paired direct messages only: do not claim personal group support, read chat history, share identity bindings with WeCom, or copy channel credentials into product storage.
-- `lark-cli` and DingTalk Workspace CLI (`dws`) are the approved local control-plane tools for discovery, dry runs, and bounded verification. Production transport still requires dedicated adapters, explicit application/bot identities, administrator-approved scopes, durable inbox/outbox processing, and revocable identity/conversation bindings.
-- Feishu remains an optional connection-center channel and local developer CLI; it is not a required end-user login provider.
-- Production family-key login uses high-entropy revocable keys, server-side keyed hashes, uniform failure responses, and rate limits. One active key resolves exactly one family, and raw key material is never logged, returned, or persisted in the browser.
-- Avatar choices include allowlisted IDs for all six roles in both static forms plus bounded photo upload. The `work` suffix is presentation-only and never changes domain or authorization. Production uploads must be decoded and re-encoded, stripped of metadata, and represented in sessions by opaque asset IDs.
-- Robot output is a shared-space broadcast, never member delivery or completion proof. Product code owns authorization, durable outbox idempotency, retries, audit, and escalation; the robot module owns typed rendering, 1024-byte validation, per-process serialization, bounded provider polling, cancellation, and safe result mapping.
-- The A3 adapter follows the official standard-A3 v3.1 TTS contract rather than the draft HandOff sample: HTTP paths omit `pb:/`, the client supplies `trace_id`, status is nested, and delivery requires explicit `End` or observed active playback followed by `NOTInQue`. `NOTInQue` without active evidence is `accepted_unverified`; v3.2 remains unverified until a real standard-A3 smoke test.
-- Live A3 smoke testing is fail-closed behind explicit deployment configuration and `ROBOT_A3_SMOKE_CONFIRM=PLAY_AUDIO_ON_A3`. Do not store device endpoints with credentials or run neck motion before a separate motion-safety review and an exact device contract.
-- A `ResponsibilityDomain` always has one same-family human `accountableOwnerId`. An Agent may receive only an explicit permitted Todo; it can never become the accountable owner or inherit domain-owner work.
-- Handover submission or revision may persist `pending_info` or `pending_ack`, but neither changes ownership. Decline and expiry also retain the existing owner. Only accepted handover constructs one complete next-state snapshot that changes the owner, migrates eligible future domain-owner Todos and reminders, closes the confirmation reminder, appends a safe AuditLog entry, and adds the old-owner informational notice. Every timestamp-bearing command and record must pass real ISO calendar validation before comparison or persistence; JavaScript date normalization is not validation.
-- Reminder recipients are derived from source semantics rather than a detached default recipient field: Event participants, Todo assignee, Domain review accountable owner, and Handover current confirmer. Completing a Todo stops its active reminder; accepted ownership migration reroutes eligible future action reminders to the new owner.
-- Evidence is private by default. Only the evidence subject may grant or revoke family consent, and private-expression content never enters a family projection. Runtime projections resolve one unambiguous human by both actor and family, derive responsibility state from the current snapshot, cross-check reminder recipients and accepted audit entries against their live sources, and expose reminders and notices only to their recipient. AI provider output is strict closed-world data, retries once after invalid output, accepts only complete same-family human Member records as owner candidates, never guesses missing facts, and degrades to manual confirmation without committing state.
-- The responsibility Store exposes direct immutable commit receipts with `committed`, `replayed`, and `revision`; the Service normalizes command results before applying them so leaf-only metadata cannot bypass the Store contract. Mutation idempotency fingerprints hash a closed allowlist of every result-affecting field, including revision patches and deterministic clock values. Todo completion is assignee-only, and an Agent may complete only an explicitly assigned Todo.
-- The hackathon deployment uses Vercel project `we-remember-family` at `family.davidwang.space`. `/api/responsibility` replays a bounded deterministic Fixture through the real Store/Service within each request, so it does not depend on serverless instance memory. It is a public demo boundary, not durable database transactions, production authentication, external notification delivery, or real family data. `.vercelignore` excludes project memory, product documents, screenshots, tests, scripts, and robot sources from the deployment bundle.
-- Responsibility lifecycle state, owner/reminder routing, perspective switching, and golden-flow controls are backend concerns and must not appear as a standalone frontend demo/status panel. The conversation may show a user-facing responsibility suggestion, but it must not expose internal workflow controls or simulate acceptance from the page.
+## Repository and evidence boundaries
+
+- The repository root is the engineering entry point. Preserve the static HTML/CSS/JavaScript application, Node.js 24 ESM responsibility module, isolated TypeScript robot adapter, and Python QA stack.
+- Keep `app/`, `modules/responsibility/`, and `modules/robot/` as separate boundaries unless a demonstrated product requirement justifies a change.
+- The hackathon experience uses fictional Fixtures, preset scenarios, browser-local state, and Mock notification/channel displays.
+- The post-hackathon prototype adds a runnable same-origin server and tested responsibility Store/Service flow, but state remains memory-backed or reconstructed from a bounded Fixture.
+- Do not claim production deployment, durable persistence, real authentication, external calendar or message delivery, private WeChat chat/history access, WeChat group access, or resolution of all family conflict.
+- Robot adapters and simulator results are local-only evidence. They do not prove physical A3 safety, playback, motion, or field reliability.
+- [STATUS.md](STATUS.md) is the current source for project state, executed checks, evidence levels, and known limitations.
+
+## Governance and commands
+
+- Read `AGENTS.md`, this file, and [ORCA_WORKTREE_LITE.md](ORCA_WORKTREE_LITE.md) before planned repository work.
+- Use one long-lived agent, worktree, and branch per genuinely independent track; keep write paths mutually exclusive and integrate once.
+- Use Git history, applicable tests, and runnable behavior as evidence. Do not build a custom scheduling, manifest, hash, attempt, or proof system.
+- Never store credential values, private user data, or display usernames in repository memory.
+
+```powershell
+npm ci
+npm ci --prefix modules/robot
+npm run dev
+npm run ci
+npm run test:http
+```
+
+## Local residual preservation
+
+- Other worktrees, local-only commits, dirty tracked documents, and untracked residuals belong to their existing owners unless explicitly assigned.
+- Audit those items read-only. Never automatically import uncommitted files, read `.env` or credential contents, reset another worktree, or delete unexplained residuals.
+- Local `tmp/`, generated outputs, SVG prototypes, robot material, simulator artifacts, and screenshots are not production evidence and must not be promoted into product claims.
+- The public-safe residual classification is recorded in the [repository cleanup audit](docs/history/REPOSITORY_CLEANUP_2026-08-31.md); preserve the residuals themselves outside this cleanup branch.
