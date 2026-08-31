@@ -29,7 +29,7 @@ Replace manual schedule entry with a conversation-first flow. A person can type 
 - The UI does not claim that local demo notifications or transcription are production delivery.
 - The desktop layout and a 390 px mobile viewport have no horizontal overflow, clipped primary action, or overlapping content.
 - Reduced-motion users do not receive decorative movement.
-- The static prototype opens directly on the Agent destination at desktop and 390 px mobile widths.
+- The local prototype starts at a username-only gate; after a valid local display session, it opens the Agent destination at desktop and 390 px mobile widths.
 
 ## Product boundaries
 
@@ -52,9 +52,9 @@ Brand-motion acceptance criteria:
 
 ## Prototype entry and production identity
 
-The static prototype opens directly on the Agent destination with a fixed fictional family and the working-woman SVG as the default personal avatar. Family members use their corresponding static role SVGs. It does not present a family-key gate, family confirmation, avatar setup, or sign-out flow. This keeps the prototype focused on the conversation-to-confirmation journey and must not be interpreted as production authentication.
+The static prototype starts signed out at a local username-only gate, then shows the Agent destination with a fixed fictional family and the working-woman SVG as the default presentation avatar. It has no family-key flow, family confirmation, avatar setup, account lookup, or production authentication; a local sign-out only clears the display session. Family members use their corresponding static role SVGs. This keeps the prototype focused on the conversation-to-confirmation journey and must not be interpreted as production identity.
 
-Production identity remains a backend responsibility. Before product deployment, the family-key exchange and session endpoints in `API-CONTRACT.md` require rate limiting, server-side keyed hashing, one-family resolution, secure session issuance, revocation, and uniform failure responses. None of those guarantees is simulated by the direct-entry prototype.
+Production identity remains a backend responsibility. Before product deployment, the family-key exchange and session endpoints in `API-CONTRACT.md` require rate limiting, server-side keyed hashing, one-family resolution, secure session issuance, revocation, and uniform failure responses. None of those guarantees is simulated by the local username gate.
 
 ## Single family domain
 
@@ -108,9 +108,9 @@ Out of scope for this delivery: backend persistence, real member administration,
 
 The local hackathon demo starts signed out and presents a keyboard-operable username-only gate before the application shell. A trimmed username must be 1–24 characters and contain no control characters. There is no password, account lookup, real authentication, or production identity claim: the value is used only to label the current browser page.
 
-The versioned `sessionStorage` demo session restores after refresh in the same tab and expires when that tab/session closes. Invalid, malformed, or expired stored values fail closed to signed out. Signing out clears the demo session and returns to the gate; reload is a safe way to reset local runtime state. The username is never a member ID, actor ID, or authorization input and is never sent to the schedule or responsibility API. The Responsibility API remains the fixed `mother` Fixture demonstration, while mother/father/grandmother perspective controls remain explicitly labeled as presentation demos, not authentication.
+The versioned `sessionStorage` record has exact `version`, `username`, `issuedAt`, and `expiresAt` fields. It restores only within its fixed 12-hour lifetime in the same tab; malformed, unsupported, stale, or extra-field values fail closed to signed out, and runtime expiry immediately returns to the gate. Signed-out entry and local sign-out skip the decorative opening so the gate is visible and focused. The username is never a member ID, actor ID, or authorization input and is never sent to the schedule or Responsibility API. The Responsibility API remains the fixed `mother` Fixture demonstration, while mother/father/grandmother perspective controls remain explicitly labeled as presentation demos, not authentication.
 
-After sign-in, the existing quick-prompt area presents three product-aligned, non-consequential local demo scenarios: remote care for parents (follow-up, medication, transport, and responsibility ownership), weekday family dinner (time, family, and next action), and repairing communication after conflict (facts, feelings, and private-by-default boundaries that require explicit consent before sharing). They do not use source-person names as accounts and never claim medical care, therapy, crisis intervention, or real notification completion.
+After sign-in, three deterministic, non-consequential demo paths remain bounded to this page: remote care sends the fixed Fixture text about grandmother's follow-up, medication, transport, and whole-domain ownership to the Responsibility API and displays its suggestion; it does not make health judgments. Weekday dinner displays a fixed food, taste, time, menu, and division-of-work draft that is explicitly unconfirmed and unsynced, with no event or notification. Post-conflict communication displays a private reflection with facts awaiting confirmation, private feelings, unshared boundaries, and a next step; it neither calls the Responsibility API nor creates an event, notification, or audit record. They do not use source-person names as accounts and never claim medical care, therapy, crisis intervention, or real notification completion.
 
 ## Physical robot notification output
 

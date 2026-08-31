@@ -9,10 +9,16 @@ The prototype is a dependency-free static web application:
 - `app/app.js`: conversation state, deterministic draft extraction, confirmation, notification receipts, and browser speech capability handling.
 - `app/assets/family-work/`: 12 verified static SVG avatar endpoints; transition SVGs are intentionally excluded.
 - `app/assets/brand/`: transparent SVG brand assets, including two animations and a static path-only application logo.
-- `app/index.html` direct entry: the static prototype renders the Agent shell immediately with fixed fictional family context.
+- `app/index.html` local gate: the static prototype renders a username-only gate before the fixed fictional-family Agent shell.
 - `app/index.html` connection center: truthful platform capability and installation-state presentation.
 - `contracts/channel-gateway.openapi.yaml`: canonical custom-bot ingress and delivery-webhook contract.
 - `docs/integration-gateway.md`: routing, identity, privacy, reliability, and platform-adapter boundaries.
+
+## Repository engineering boundary
+
+The repository root is the canonical operator entry point. Root `package.json` provides `dev`, `check`, `test`, `demo`, and `ci` without adding application runtime dependencies or changing the existing module boundaries. `npm ci` validates the root lock, while `npm ci --prefix modules/robot` installs the robot module's pinned TypeScript tooling; the responsibility package remains dependency-free.
+
+`.github/workflows/ci.yml` runs the same `npm run ci` contract used locally with Node.js 24 and Python 3.13. `.editorconfig` and `.gitattributes` define text and line-ending conventions, and `.gitignore` excludes local runtime artifacts and credential files. The repository intentionally does not introduce npm workspaces, a frontend build framework, or a second orchestration layer merely to combine commands.
 - `docs/cli-integration-runbook.md`: credential-free CLI bootstrap and runtime handoff rules.
 - `scripts/check_channel_clis.ps1`: safe local readiness check for `lark-cli`, `dws`, and OpenClaw without exposing account identifiers or credentials.
 - `scripts/verify_app.py`: structural contract checks that require no installed packages.
@@ -32,7 +38,7 @@ The application does not use the looping animation as its persistent rail logo. 
 page_load -> signed_out -> username_gate -> demo_ready -> agent_view
 ```
 
-The prototype has a local username-only hackathon gate, not production authentication or avatar setup. It stores only a versioned demo display session in `sessionStorage`: valid sessions restore on same-tab refresh; malformed, stale, or invalid values result in signed out; closing the tab/session ends the session. A username is trim-normalized, 1–24 characters, and rejects control characters. It is written through `textContent`, never interpolated as HTML, sent to APIs, mapped to `actorId`/`memberId`, or used for authorization. A clear sign-out control removes the session and returns to the gate.
+The prototype has a local username-only hackathon gate, not production authentication, family-key entry, or avatar setup. It stores only an exact versioned display record in `sessionStorage`: `version`, `username`, `issuedAt`, and `expiresAt` must be safe integers with a fixed 12-hour interval and no extra fields. Valid sessions restore on same-tab refresh and receive an in-page expiry timer; malformed, stale, unsupported, or invalid values result in signed out. A username is trim-normalized, 1–24 characters, and rejects C0/C1 and invisible or bidirectional format controls. It is written through `textContent`, never interpolated as HTML, sent to APIs, mapped to `actorId`/`memberId`, or used for authorization. Signed-out entry and sign-out dismiss the decorative opening so the focused gate is reachable. A clear sign-out removes the record or writes an invalid tombstone; if storage blocks both, the current page still immediately becomes signed out.
 
 The signed-in shell uses fixed fictional family context, `mother/work.svg` as the default presentation avatar, and matching family-form SVGs for named members. The responsibility endpoint continues to receive its fixed Fixture actor `mother`; perspective controls are demonstrations only. Production identity still requires the backend contract because rate limiting, keyed hashing, binding resolution, secure session issuance, and revocation cannot be implemented safely in a static browser application.
 
@@ -141,7 +147,7 @@ Then open `http://127.0.0.1:4173/app/` and verify the primary journey in Chrome 
 
 Also verify the Agent, family schedule, family and notifications, and connection-center destinations at 1440×1000, 820×1180, and 390×844. Confirmation must update schedule counts and notification receipts across views, filters must expose their selected state, and every mobile primary action must remain reachable above the fixed navigation.
 
-Also verify direct Agent entry, the absence of onboarding controls, all 12 retained static SVG assets, the absence of transition SVGs, reduced motion, and the absence of work-workspace controls.
+Also verify the signed-out local gate and restored local Agent entry, the absence of production onboarding controls, all 12 retained static SVG assets, the absence of transition SVGs, reduced motion, and the absence of work-workspace controls.
 
 ## Responsibility ownership P0 architecture
 

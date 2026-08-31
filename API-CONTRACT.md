@@ -11,7 +11,7 @@
 
 ## Local hackathon username display session
 
-The static demo's username gate is not an HTTP authentication API and creates no server session. It accepts a trimmed 1–24-character display name without control characters and stores a versioned value only in browser `sessionStorage` for same-tab refresh recovery. It expires with the browser session and fails closed on malformed, expired, or unsupported data. The display name is rendered with DOM `textContent` only; it must never be transmitted, treated as an `actorId` or `memberId`, or used for family, permission, schedule, or Responsibility decisions. The fixed local Responsibility Fixture continues to use `mother` as its actor independently of the display name.
+The static demo's username gate is not an HTTP authentication API and creates no server session. It accepts a trimmed 1–24-character display name without C0/C1 or invisible/bidirectional format controls and stores an exact `{ version, username, issuedAt, expiresAt }` record only in browser `sessionStorage` for same-tab refresh recovery. Both timestamps are safe integers, `issuedAt <= now < expiresAt`, and the interval is exactly 12 hours; malformed, expired, unsupported, or extra-field records fail closed. Runtime expiry immediately restores the gate. The display name is rendered with DOM `textContent` only; it must never be transmitted, treated as an `actorId` or `memberId`, or used for family, permission, schedule, or Responsibility decisions. The fixed local Responsibility Fixture continues to use `mother` as its actor independently of the display name.
 
 ## Family-key authentication
 

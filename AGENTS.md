@@ -2,9 +2,9 @@
 
 - Project: New-gethe-point
 - Initialized: 2026-08-28
-- Technology stack: Not established
-- Package manager: Not established
-- Primary directories: Repository root only
+- Technology stack: Static HTML/CSS/JavaScript, Node.js 24 ESM, TypeScript robot adapter, Python QA
+- Package manager: npm 11
+- Primary directories: `app/`, `api/`, `contracts/`, `docs/`, `modules/`, `scripts/`
 
 ## Working Rules
 
@@ -26,4 +26,8 @@
 
 ## Commands
 
-No project-specific build, test, lint, or deployment commands are established yet.
+- Install root tooling: `npm ci`
+- Install robot tooling: `npm ci --prefix modules/robot`
+- Start the local application and same-origin demo API: `npm run dev`
+- Run the complete repository gate: `npm run ci`
+- Run the focused HTTP/API suite: `npm run test:http`

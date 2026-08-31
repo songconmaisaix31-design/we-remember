@@ -68,8 +68,19 @@ await send("Emulation.setDeviceMetricsOverride", {
 await send("Emulation.setEmulatedMedia", {
   features: [{ name: "prefers-reduced-motion", value: scenario === "identity-reduced" ? "reduce" : "no-preference" }],
 });
+const seededOpeningScenario = ["opening", "opening-complete", "reduced-change"].includes(scenario);
+if (seededOpeningScenario) {
+  await send("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => { const issuedAt = Date.now(); sessionStorage.setItem('we-remember.demo-session.v1', JSON.stringify({ version: 1, username: 'Opening QA', issuedAt, expiresAt: issuedAt + 43200000 })); })();`,
+  });
+}
 await send("Page.navigate", { url });
 await new Promise((resolve) => setTimeout(resolve, 800));
+if (!seededOpeningScenario) {
+  await evaluate(`sessionStorage.removeItem('we-remember.demo-session.v1'); true`);
+  await send("Page.navigate", { url });
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
 
 const openingState = JSON.parse(await evaluate(`JSON.stringify({
   present: document.querySelector('#brand-intro') !== null,
@@ -78,7 +89,7 @@ const openingState = JSON.parse(await evaluate(`JSON.stringify({
   staticLogoSource: document.querySelector('.brand-logo')?.getAttribute('src'),
   staticLogoLoaded: Boolean(document.querySelector('.brand-logo')?.complete && document.querySelector('.brand-logo')?.naturalWidth > 0)
 })`));
-const expectsOpening = scenario !== "identity-reduced";
+const expectsOpening = seededOpeningScenario && scenario !== "identity-reduced";
 if (expectsOpening !== openingState.visible || (expectsOpening && !openingState.animatedLogoLoaded)
   || (!expectsOpening && openingState.present) || openingState.staticLogoSource !== "assets/brand/we-remember-logo.svg"
   || !openingState.staticLogoLoaded) {
@@ -98,9 +109,12 @@ async function assertDemoGate() {
     appHidden: document.querySelector('.app-shell')?.hidden,
     appInert: document.querySelector('.app-shell')?.inert,
     usernameType: document.querySelector('#demo-username')?.type,
-    passwordInputAbsent: document.querySelector('input[type="password"]') === null
+    passwordInputAbsent: document.querySelector('input[type="password"]') === null,
+    introAbsent: document.querySelector('#brand-intro') === null,
+    inputFocused: document.activeElement === document.querySelector('#demo-username'),
+    inputReachable: (() => { const input = document.querySelector('#demo-username'); const rect = input.getBoundingClientRect(); const target = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2); return Boolean(rect.width && rect.height && (target === input || input.contains(target))); })()
   })`));
-  if (!gate.gateVisible || !gate.appHidden || !gate.appInert || gate.usernameType !== 'text' || !gate.passwordInputAbsent) {
+  if (!gate.gateVisible || !gate.appHidden || !gate.appInert || gate.usernameType !== 'text' || !gate.passwordInputAbsent || !gate.introAbsent || !gate.inputFocused || !gate.inputReachable) {
     throw new Error(`Demo login gate failed: ${JSON.stringify(gate)}`);
   }
   return gate;
@@ -116,7 +130,19 @@ async function signInDemo(username = '本地演示用户') {
   await new Promise((resolve) => setTimeout(resolve, 80));
 }
 
-async function assertSignedInEntry() {
+async function waitFor(expression, timeout = 2500) {
+  return evaluate(`new Promise(resolve => { const deadline = Date.now() + ${timeout}; const check = () => { if (${expression}) resolve(true); else if (Date.now() >= deadline) resolve(false); else setTimeout(check, 25); }; check(); })`);
+}
+
+async function clickVisible(selector) {
+  const point = JSON.parse(await evaluate(`(() => { const element = [...document.querySelectorAll(${JSON.stringify(selector)})].find(candidate => { const rect = candidate.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && getComputedStyle(candidate).visibility !== 'hidden'; }); if (!element) return JSON.stringify({ found: false }); element.scrollIntoView({ block: 'center' }); const rect = element.getBoundingClientRect(); const x = rect.left + rect.width / 2; const y = rect.top + rect.height / 2; const target = document.elementFromPoint(x, y); return JSON.stringify({ found: true, x, y, reachable: target === element || element.contains(target) }); })()`));
+  if (!point.found || !point.reachable) throw new Error(`Visible click target failed: ${JSON.stringify({ selector, point })}`);
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: point.x, y: point.y });
+  await send("Input.dispatchMouseEvent", { type: "mousePressed", x: point.x, y: point.y, button: "left", clickCount: 1 });
+  await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: point.x, y: point.y, button: "left", clickCount: 1 });
+}
+
+async function assertSignedInEntry(expectedUsername = '本地演示用户') {
   const entry = JSON.parse(await evaluate(`JSON.stringify({
     appVisible: !document.querySelector('.app-shell')?.hidden,
     agentVisible: !document.querySelector('#agent-view')?.hidden,
@@ -136,7 +162,7 @@ async function assertSignedInEntry() {
     'assets/family-work/son/family.svg',
     'assets/family-work/grandmother/family.svg'
   ];
-  if (!entry.appVisible || !entry.agentVisible || !entry.gateHidden || !entry.ready || entry.displayedUsername !== '本地演示用户'
+  if (!entry.appVisible || !entry.agentVisible || !entry.gateHidden || !entry.ready || entry.displayedUsername !== expectedUsername
     || entry.defaultAvatar !== expectedMemberAvatars[0] || entry.roleAvatarCount !== 11
     || !entry.roleAvatarsLoaded || JSON.stringify(entry.memberAvatarSources) !== JSON.stringify(expectedMemberAvatars)) {
     throw new Error(`Signed-in demo entry failed: ${JSON.stringify(entry)}`);
@@ -481,7 +507,7 @@ const demoGate = await assertDemoGate();
 
 if (scenario === 'demo-login') {
   const invalidInputs = [];
-  for (const value of ['', 'a'.repeat(25), 'bad\u0001name']) {
+  for (const value of ['', 'a'.repeat(25), 'bad\u0001name', 'bad\u200Bname', 'bad\u202Ename']) {
     const result = JSON.parse(await evaluate(`(() => {
       const input = document.querySelector('#demo-username');
       input.value = ${JSON.stringify(value)};
@@ -491,8 +517,45 @@ if (scenario === 'demo-login') {
     if (!result.appHidden || !result.errorVisible) throw new Error(`Invalid username was accepted: ${JSON.stringify({ value, result })}`);
     invalidInputs.push(result);
   }
-  await signInDemo();
-  const signedIn = await assertSignedInEntry();
+  await signInDemo('<img src=x onerror=1>');
+  const maliciousDisplay = JSON.parse(await evaluate(`JSON.stringify({ text: document.querySelector('#profile-name').textContent, imageCount: document.querySelectorAll('#profile-name img').length })`));
+  if (maliciousDisplay.text !== '<img src=x onerror=1>' || maliciousDisplay.imageCount !== 0) {
+    throw new Error(`Username was not rendered as text: ${JSON.stringify(maliciousDisplay)}`);
+  }
+  await evaluate(`(() => { const calls = []; const originalFetch = window.fetch; window.fetch = (...args) => { calls.push(String(args[0])); return originalFetch(...args); }; window.__demoFetchCalls = calls; return true; })()`);
+  await clickVisible('[data-demo-scenario="remote-care"]');
+  if (!await waitFor("document.querySelector('[data-demo-card=\"meal-suggestion\"]') === null && document.querySelector('.responsibility-suggestion-card') !== null")) throw new Error('Remote-care scenario did not render its responsibility suggestion');
+  const remoteScenario = JSON.parse(await evaluate(`JSON.stringify({ responsibilityCards: document.querySelectorAll('.responsibility-suggestion-card').length, calls: window.__demoFetchCalls.length, drafts: document.querySelectorAll('.draft-card').length })`));
+  if (remoteScenario.responsibilityCards !== 1 || remoteScenario.calls !== 1 || remoteScenario.drafts !== 0) throw new Error(`Remote-care side effects failed: ${JSON.stringify(remoteScenario)}`);
+  await clickVisible('[data-demo-scenario="meal"]');
+  if (!await waitFor("document.querySelector('[data-demo-card=\"meal-suggestion\"]') !== null")) throw new Error('Meal scenario did not render its local suggestion');
+  const mealScenario = JSON.parse(await evaluate(`JSON.stringify({ card: Boolean(document.querySelector('[data-demo-card=\"meal-suggestion\"]')), calls: window.__demoFetchCalls.length, drafts: document.querySelectorAll('.draft-card').length, events: document.querySelectorAll('#timeline .timeline-event').length, receipts: document.querySelectorAll('#notification-receipt-list .notification-receipt').length })`));
+  if (!mealScenario.card || mealScenario.calls !== 1 || mealScenario.drafts !== 0 || mealScenario.events !== 2 || mealScenario.receipts !== 2) throw new Error(`Meal scenario created a consequential side effect: ${JSON.stringify(mealScenario)}`);
+  await clickVisible('[data-demo-scenario="conflict"]');
+  if (!await waitFor("document.querySelector('[data-demo-card=\"private-reflection\"]') !== null")) throw new Error('Conflict scenario did not render private reflection');
+  const conflictScenario = JSON.parse(await evaluate(`JSON.stringify({ card: Boolean(document.querySelector('[data-demo-card=\"private-reflection\"]')), calls: window.__demoFetchCalls.length, drafts: document.querySelectorAll('.draft-card').length, events: document.querySelectorAll('#timeline .timeline-event').length, receipts: document.querySelectorAll('#notification-receipt-list .notification-receipt').length, audit: document.querySelectorAll('[data-audit], .audit-log').length })`));
+  if (!conflictScenario.card || conflictScenario.calls !== 1 || conflictScenario.drafts !== 0 || conflictScenario.events !== 2 || conflictScenario.receipts !== 2 || conflictScenario.audit !== 0) throw new Error(`Conflict scenario created a consequential side effect: ${JSON.stringify(conflictScenario)}`);
+  await evaluate(`(() => { const issuedAt = Date.now(); sessionStorage.setItem('we-remember.demo-session.v1', JSON.stringify({ version: 2, username: 'x', issuedAt, expiresAt: issuedAt + 43200000 })); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const wrongVersion = await assertDemoGate();
+  await evaluate(`sessionStorage.setItem('we-remember.demo-session.v1', '{not-json'); location.reload(); true`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const malformed = await assertDemoGate();
+  await evaluate(`(() => { const issuedAt = Date.now(); sessionStorage.setItem('we-remember.demo-session.v1', '{"version":1,"username":"x","issuedAt":1e309,"expiresAt":1e309}'); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const infinity = await assertDemoGate();
+  await evaluate(`(() => { const issuedAt = Date.now(); sessionStorage.setItem('we-remember.demo-session.v1', JSON.stringify({ version: 1, username: 'x', issuedAt, expiresAt: issuedAt + 43200001 })); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const overTtl = await assertDemoGate();
+  await evaluate(`(() => { const expiresAt = Date.now() + 5000; sessionStorage.setItem('we-remember.demo-session.v1', JSON.stringify({ version: 1, username: 'near-expiry', issuedAt: expiresAt - 43200000, expiresAt })); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  if (await evaluate("document.querySelector('.app-shell').hidden")) throw new Error('Near-expiry session did not restore before expiry');
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+  const runtimeExpiry = await assertDemoGate();
+  await signInDemo('abcdefghijklmnopqrstuvwx');
+  const signedIn = await assertSignedInEntry('abcdefghijklmnopqrstuvwx');
+  const focusAndGeometry = JSON.parse(await evaluate(`JSON.stringify((() => { const name = window.innerWidth <= 960 ? document.querySelector('[data-demo-username]') : document.querySelector('#profile-name'); const container = window.innerWidth <= 960 ? document.querySelector('.mobile-session-bar') : document.querySelector('.profile'); const rect = name.getBoundingClientRect(); const outer = container.getBoundingClientRect(); return { focusedAgentHeading: document.activeElement === document.querySelector('#agent-view-title'), name: name.textContent, withinContainer: rect.left >= outer.left - 1 && rect.right <= outer.right + 1 && rect.top >= outer.top - 1 && rect.bottom <= outer.bottom + 1, mobileSessionVisible: window.innerWidth > 960 || (getComputedStyle(document.querySelector('.mobile-session-bar')).display !== 'none' && document.querySelector('.mobile-session-bar').getBoundingClientRect().height > 0) }; })())`));
+  if (!focusAndGeometry.focusedAgentHeading || focusAndGeometry.name !== 'abcdefghijklmnopqrstuvwx' || !focusAndGeometry.withinContainer || !focusAndGeometry.mobileSessionVisible) throw new Error(`Login focus or session geometry failed: ${JSON.stringify(focusAndGeometry)}`);
   await send('Page.reload', { ignoreCache: true });
   await new Promise((resolve) => setTimeout(resolve, 350));
   const restored = JSON.parse(await evaluate(`JSON.stringify({
@@ -501,13 +564,23 @@ if (scenario === 'demo-login') {
     scrollWidth: document.documentElement.scrollWidth,
     viewportWidth: window.innerWidth
   })`));
-  if (!restored.appVisible || restored.username !== '本地演示用户' || restored.scrollWidth > restored.viewportWidth) {
+  if (!restored.appVisible || restored.username !== 'abcdefghijklmnopqrstuvwx' || restored.scrollWidth > restored.viewportWidth) {
     throw new Error(`Demo session restore failed: ${JSON.stringify(restored)}`);
   }
-  await evaluate(`document.querySelector('#demo-sign-out').click(); true`);
+  const originalStorage = await evaluate(`(() => { const originalRemove = Storage.prototype.removeItem; const originalSet = Storage.prototype.setItem; Storage.prototype.removeItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; document.querySelector('#demo-sign-out').click(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 60));
+  const storageFailure = await assertDemoGate();
+  await send('Page.reload', { ignoreCache: true });
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await evaluate(`(() => { sessionStorage.removeItem('we-remember.demo-session.v1'); location.reload(); return true; })()`);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  await assertDemoGate();
+  await signInDemo('本地演示用户');
+  const signOutSelector = width <= 960 ? '[data-demo-sign-out]' : '#demo-sign-out';
+  await clickVisible(signOutSelector);
   await new Promise((resolve) => setTimeout(resolve, 350));
   const signedOut = await assertDemoGate();
-  await captureResult({ demoGate, invalidInputs, signedIn, restored, signedOut });
+  await captureResult({ demoGate, invalidInputs, maliciousDisplay, remoteScenario, mealScenario, conflictScenario, wrongVersion, malformed, infinity, overTtl, runtimeExpiry, signedIn, focusAndGeometry, restored, storageFailure, signedOut });
   process.exit(0);
 }
 

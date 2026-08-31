@@ -16,6 +16,7 @@
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
+    <p class="sr-only" id="demo-session-status" role="status" aria-live="polite"></p>
     <main class="demo-login surface" id="demo-login" aria-labelledby="demo-login-title">
       <div class="demo-login-mark" aria-hidden="true">✦</div>
       <p class="eyebrow">LOCAL HACKATHON DEMO</p>
@@ -43,7 +44,7 @@
             <img class="custom-avatar role-avatar" id="profile-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg" alt="我的职场女性头像" />
             <span class="presence" aria-label="Agent 在线">✦</span>
           </div>
-          <div>
+          <div class="profile-copy">
             <strong id="profile-name">演示用户</strong>
             <span id="profile-space">我们的家 · 6 人</span>
           </div>
@@ -76,7 +77,7 @@
         <header class="workspace-header">
           <div>
             <p class="eyebrow">FAMILY · SATURDAY</p>
-            <h1 id="agent-view-title">今天想安排什么？</h1>
+          <h1 id="agent-view-title" tabindex="-1">今天想安排什么？</h1>
             <p>直接告诉 Agent。时间、参与人和提醒方式会先由你确认。</p>
           </div>
           <div class="family-badge surface"><img class="custom-avatar role-avatar" id="space-avatar" data-role-avatar="self" src="assets/family-work/mother/work.svg" alt="" aria-hidden="true" /><span>我们的家</span></div>
@@ -99,9 +100,9 @@
               <strong>时间 Agent</strong>
               <p>你可以打字，也可以直接说。例如：“周六下午三点带妈妈复诊，提前一天提醒我和爸爸。”</p>
               <div class="suggestions" aria-label="示例指令">
-                <button type="button" data-prompt="远方照护父母：下周复诊、每日用药和接送怎么安排，谁负责跟进？">远方照护父母</button>
-                <button type="button" data-prompt="明晚七点下班后全家吃晚餐，家人有哪些、下一步谁确认？">下班家庭晚餐</button>
-                <button type="button" data-prompt="冲突后想重新沟通：先整理事实、情绪和边界，默认私密，只有明确确认才分享。">重新沟通边界</button>
+                <button type="button" data-prompt="远方照护父母：奶奶下周复诊，需要每日用药和接送；请明确整块责任由谁负责跟进。" data-demo-scenario="remote-care">远方照护父母</button>
+                <button type="button" data-prompt="下班家庭晚餐：今晚可用番茄、鸡蛋、青菜和米饭，口味清淡，30 分钟内完成；下一步谁分工？" data-demo-scenario="meal">下班家庭晚餐</button>
+                <button type="button" data-prompt="冲突后重新沟通：先整理待确认事实、仅本人可见感受和不分享边界，默认私密。" data-demo-scenario="conflict">重新沟通边界</button>
               </div>
               <p class="scenario-boundary">场景仅用于本地演示，不代表医疗、心理服务、危机干预或真实通知已完成。</p>
             </div>
@@ -242,6 +243,10 @@
         </section>
       </aside>
 
+      <div class="mobile-session-bar surface" aria-label="本地演示会话">
+        <strong data-demo-username>演示用户</strong>
+        <button class="demo-sign-out" type="button" data-demo-sign-out aria-label="退出本地演示">退出</button>
+      </div>
       <nav class="mobile-nav surface" aria-label="移动端导航">
         <button class="is-active" type="button" data-view="agent" aria-current="page"><span>✦</span><small>Agent</small></button>
         <button type="button" data-view="schedule"><span>▦</span><small>时间表</small></button>

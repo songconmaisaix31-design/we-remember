@@ -26,60 +26,104 @@ const demoLogin = document.querySelector("#demo-login");
 const demoLoginForm = document.querySelector("#demo-login-form");
 const demoUsernameInput = document.querySelector("#demo-username");
 const demoLoginError = document.querySelector("#demo-login-error");
-const demoSignOut = document.querySelector("#demo-sign-out");
+const demoSignOutButtons = document.querySelectorAll("[data-demo-sign-out], #demo-sign-out");
 const profileName = document.querySelector("#profile-name");
+const demoUsernameLabels = document.querySelectorAll("[data-demo-username]");
+const demoSessionStatus = document.querySelector("#demo-session-status");
 const DEMO_SESSION_STORAGE_KEY = "we-remember.demo-session.v1";
 const DEMO_SESSION_VERSION = 1;
 const DEMO_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const DEMO_SESSION_KEYS = Object.freeze(["version", "username", "issuedAt", "expiresAt"]);
+const REMOTE_CARE_FIXTURE_TEXT = "奶奶下周复诊，需要每日用药和接送；请明确整块责任由谁负责跟进。";
 let activeView = "agent";
 let selectedMember = "all";
+let demoSessionExpiryTimer;
 
 const normalizeDemoUsername = (value) => String(value).trim();
 
 const isValidDemoUsername = (value) => (
-  value.length >= 1 && value.length <= 24 && !/[\u0000-\u001F\u007F-\u009F]/u.test(value)
+  value.length >= 1
+  && value.length <= 24
+  && !/[\u0000-\u001F\u007F-\u009F\u200B\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/u.test(value)
 );
 
 const readDemoSession = () => {
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(DEMO_SESSION_STORAGE_KEY) ?? "");
+    const now = Date.now();
+    const keys = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? Object.keys(parsed) : [];
     if (
       parsed?.version !== DEMO_SESSION_VERSION ||
       typeof parsed?.username !== "string" ||
-      typeof parsed?.expiresAt !== "number" ||
-      parsed.expiresAt <= Date.now()
+      !Number.isSafeInteger(parsed?.issuedAt) ||
+      !Number.isSafeInteger(parsed?.expiresAt) ||
+      parsed.issuedAt > now ||
+      now >= parsed.expiresAt ||
+      parsed.expiresAt - parsed.issuedAt !== DEMO_SESSION_TTL_MS ||
+      keys.length !== DEMO_SESSION_KEYS.length ||
+      !DEMO_SESSION_KEYS.every((key) => Object.hasOwn(parsed, key))
     ) return null;
     const username = normalizeDemoUsername(parsed.username);
-    return isValidDemoUsername(username) ? { username, expiresAt: parsed.expiresAt } : null;
+    return isValidDemoUsername(username) ? { username, issuedAt: parsed.issuedAt, expiresAt: parsed.expiresAt } : null;
   } catch {
     return null;
   }
 };
 
 const clearDemoSession = () => {
-  try { window.sessionStorage.removeItem(DEMO_SESSION_STORAGE_KEY); } catch {}
+  try {
+    window.sessionStorage.removeItem(DEMO_SESSION_STORAGE_KEY);
+    return { cleared: true, tombstoned: false };
+  } catch {
+    try {
+      window.sessionStorage.setItem(DEMO_SESSION_STORAGE_KEY, JSON.stringify({ invalid: true }));
+      return { cleared: false, tombstoned: true };
+    } catch {
+      return { cleared: false, tombstoned: false };
+    }
+  }
 };
 
-const showDemoLogin = (message = "") => {
-  clearDemoSession();
+const cancelDemoSessionExpiry = () => {
+  if (demoSessionExpiryTimer !== undefined) window.clearTimeout(demoSessionExpiryTimer);
+  demoSessionExpiryTimer = undefined;
+};
+
+const showDemoLogin = (message = "", { clear = true } = {}) => {
+  cancelDemoSessionExpiry();
+  if (clear) clearDemoSession();
+  dismissBrandIntro();
   appShell.hidden = true;
   appShell.inert = true;
   demoLogin.hidden = false;
+  document.body.dataset.sessionStatus = "signed_out";
   demoLoginError.hidden = !message;
   demoLoginError.textContent = message;
   window.setTimeout(() => demoUsernameInput.focus(), 0);
 };
 
-const showDemoApplication = ({ username }) => {
+const scheduleDemoSessionExpiry = (expiresAt) => {
+  cancelDemoSessionExpiry();
+  demoSessionExpiryTimer = window.setTimeout(() => {
+    showDemoLogin("本地演示会话已过期，请重新输入用户名。", { clear: true });
+  }, Math.max(0, expiresAt - Date.now()));
+};
+
+const showDemoApplication = ({ username, expiresAt }) => {
   profileName.textContent = username;
+  demoUsernameLabels.forEach((label) => { label.textContent = username; });
   demoLogin.hidden = true;
   appShell.hidden = false;
   appShell.inert = false;
   document.body.dataset.sessionStatus = "demo_ready";
+  demoSessionStatus.textContent = "已进入本地演示。";
+  scheduleDemoSessionExpiry(expiresAt);
+  window.setTimeout(() => document.querySelector("#agent-view-title")?.focus(), 0);
 };
 
 const persistDemoSession = (username) => {
-  const session = { version: DEMO_SESSION_VERSION, username, expiresAt: Date.now() + DEMO_SESSION_TTL_MS };
+  const issuedAt = Date.now();
+  const session = { version: DEMO_SESSION_VERSION, username, issuedAt, expiresAt: issuedAt + DEMO_SESSION_TTL_MS };
   try {
     window.sessionStorage.setItem(DEMO_SESSION_STORAGE_KEY, JSON.stringify(session));
     return session;
@@ -195,11 +239,11 @@ const showToast = (message) => {
 
 const roleLabel = (memberId) => responsibilityMemberLabels[memberId] ?? memberId ?? "—";
 
-const requestResponsibilityAnalysis = async (text) => {
+const requestResponsibilityAnalysis = async () => {
   const response = await fetch("/api/responsibility", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "analyze", actorId: "mother", text }),
+    body: JSON.stringify({ action: "analyze", actorId: "mother", text: REMOTE_CARE_FIXTURE_TEXT }),
   });
   const payload = await response.json();
   if (!response.ok || !payload.ok) throw new Error(payload.error?.code ?? "request_failed");
@@ -229,9 +273,9 @@ const appendResponsibilitySuggestion = (payload) => {
   wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
 };
 
-const analyzeResponsibilityMessage = async (text) => {
+const analyzeResponsibilityMessage = async () => {
   try {
-    appendResponsibilitySuggestion(await requestResponsibilityAnalysis(text));
+    appendResponsibilitySuggestion(await requestResponsibilityAnalysis());
   } catch {
     showToast("责任建议暂时无法生成，原始内容没有进入家庭共享层");
   }
@@ -262,6 +306,49 @@ const appendUserMessage = (text) => {
   wrapper.className = "message user-message";
   wrapper.innerHTML = `<div class="message-body"><p>${escapeHtml(text)}</p></div>`;
   feed.append(wrapper);
+};
+
+const appendMealSuggestion = () => {
+  const wrapper = document.createElement("div");
+  wrapper.className = "message agent-message meal-suggestion-message";
+  wrapper.innerHTML = `
+    <span class="agent-orb" aria-hidden="true">✦</span>
+    <div>
+      <div class="message-body"><strong>晚餐 Agent</strong><p>这是仅供本页查看的分工草稿；未确认、未同步，也没有通知任何人。</p></div>
+      <article class="meal-suggestion-card" data-demo-card="meal-suggestion" aria-label="晚餐建议（本地草稿）">
+        <h3>30 分钟番茄鸡蛋饭配清炒青菜</h3>
+        <dl>
+          <dt>固定演示输入</dt><dd>番茄、鸡蛋、青菜、米饭；口味清淡；可用 30 分钟</dd>
+          <dt>所需时间</dt><dd>准备 10 分钟，烹饪 20 分钟</dd>
+          <dt>下一步分工草稿</dt><dd>我：洗切番茄和青菜；家人：煮饭并摆餐具</dd>
+        </dl>
+        <p>未确认、未同步；不会自动创建日程或发送通知。</p>
+      </article>
+    </div>`;
+  feed.append(wrapper);
+  wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+};
+
+const appendPrivateReflection = () => {
+  const wrapper = document.createElement("div");
+  wrapper.className = "message agent-message private-reflection-message";
+  wrapper.innerHTML = `
+    <span class="agent-orb" aria-hidden="true">✦</span>
+    <div>
+      <div class="message-body"><strong>沟通整理</strong><p>这份反思只在当前页面展示，尚未分享，也不会创建日程、通知或审计记录。</p></div>
+      <article class="private-reflection-card" data-demo-card="private-reflection" aria-label="仅本人可见的沟通反思">
+        <h3>先留给自己确认</h3>
+        <dl>
+          <dt>待本人确认的事实</dt><dd>这次争执发生在晚餐分工之前；具体经过仍待本人补充。</dd>
+          <dt>仅本人可见的感受</dt><dd>我感到着急，也希望被认真听见。</dd>
+          <dt>未经明确确认不分享的边界</dt><dd>不转述情绪判断，不把这份整理发送给任何家人。</dd>
+          <dt>下一步</dt><dd>等准备好后，自己决定是否写成一句可共享的具体请求。</dd>
+        </dl>
+        <p>尚未分享；需要你明确确认后，才可能进入后续沟通。</p>
+      </article>
+    </div>`;
+  feed.append(wrapper);
+  wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
 };
 
 const appendTimelineEvent = (draft) => {
@@ -342,8 +429,16 @@ const sendMessage = (text, source = "text") => {
   appendUserMessage(cleanText);
   input.value = "";
   autosize();
-  if (/责任|交接|接手|负担|撑不住|奶奶.*复诊/u.test(cleanText)) {
-    window.setTimeout(() => analyzeResponsibilityMessage(cleanText), source === "voice_message" ? 280 : 180);
+  if (/奶奶.*复诊/u.test(cleanText) && /用药|接送|责任|负责|接手/u.test(cleanText)) {
+    window.setTimeout(() => analyzeResponsibilityMessage(), source === "voice_message" ? 280 : 180);
+    return;
+  }
+  if (/下班.*晚餐|晚餐.*(?:番茄|鸡蛋|青菜|分工)|家庭晚餐/u.test(cleanText)) {
+    window.setTimeout(appendMealSuggestion, source === "voice_message" ? 280 : 180);
+    return;
+  }
+  if (/冲突.*(?:沟通|边界)|重新沟通|默认私密/u.test(cleanText)) {
+    window.setTimeout(appendPrivateReflection, source === "voice_message" ? 280 : 180);
     return;
   }
   window.setTimeout(() => {
@@ -530,9 +625,15 @@ demoLoginForm.addEventListener("submit", (event) => {
   showDemoApplication(session);
 });
 
-demoSignOut.addEventListener("click", () => {
-  clearDemoSession();
-  window.location.reload();
+demoSignOutButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    const result = clearDemoSession();
+    if (result.cleared || result.tombstoned) {
+      window.location.reload();
+      return;
+    }
+    showDemoLogin("浏览器阻止清除本地演示会话；当前页面已安全退出，请关闭此标签页后再试。", { clear: false });
+  });
 });
 
 document.querySelectorAll("[data-channel-detail]").forEach((button) => {

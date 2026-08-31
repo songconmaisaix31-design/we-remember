@@ -1,2 +1,19 @@
-outputs/qa/
 node_modules/
+**/node_modules/
+
+# Local runtime and verification artifacts
+tmp/
+coverage/
+outputs/qa/
+*.log
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+
+# Operating system and editor artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,24 @@
+{
+  "name": "we-remember",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Privacy-aware family scheduling and responsibility handover demo.",
+  "type": "module",
+  "scripts": {
+    "dev": "npm --prefix modules/responsibility start",
+    "demo": "npm --prefix modules/responsibility run demo",
+    "check": "npm run check:app && npm run check:responsibility && npm run check:robot && npm run test:robot",
+    "check:app": "python -B scripts/verify_app.py && node --check app/app.js && node --check scripts/browser_qa.mjs",
+    "check:responsibility": "npm --prefix modules/responsibility run check",
+    "check:robot": "npm --prefix modules/robot run check",
+    "test": "npm run test:responsibility && npm run test:robot",
+    "test:responsibility": "npm --prefix modules/responsibility test",
+    "test:http": "npm --prefix modules/responsibility run test:http",
+    "test:robot": "npm --prefix modules/robot test",
+    "ci": "npm run check && npm run demo"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "npm@11.13.0"
+}

@@ -51,6 +51,9 @@ require(HTML, 'id="demo-login"', "username-only demo login gate")
 require(HTML, 'id="demo-username"', "demo username input")
 require(HTML, 'id="demo-login-error"', "login error live region")
 require(HTML, 'id="demo-sign-out"', "demo sign-out control")
+require(HTML, 'data-demo-sign-out', "mobile demo sign-out control")
+require(HTML, 'data-demo-username', "mobile demo username display")
+require(HTML, 'id="demo-session-status" role="status"', "login status announcement")
 require(HTML, 'class="app-shell" data-app-state="idle" hidden inert>', "signed-out inert application shell")
 require(HTML, 'class="brand-intro" id="brand-intro" aria-hidden="true"', "one-shot brand opening")
 require(HTML, 'src="assets/brand/mom-to-we-remember.svg" alt=""', "opening animation asset")
@@ -71,11 +74,19 @@ require(JS, 'dataset.confirmed = "true"', "confirmation gate")
 require(JS, "appendTimelineEvent(draft)", "confirmed schedule sync")
 require(JS, "setActiveView", "shared application view routing")
 require(JS, 'DEMO_SESSION_STORAGE_KEY = "we-remember.demo-session.v1"', "versioned demo session key")
+require(JS, 'DEMO_SESSION_KEYS = Object.freeze(["version", "username", "issuedAt", "expiresAt"])', "strict demo session record keys")
+require(JS, 'Number.isSafeInteger(parsed?.issuedAt)', "safe issued timestamp validation")
+require(JS, 'parsed.expiresAt - parsed.issuedAt !== DEMO_SESSION_TTL_MS', "fixed session duration validation")
+require(JS, 'scheduleDemoSessionExpiry(expiresAt)', "runtime session expiry")
+require(JS, 'JSON.stringify({ invalid: true })', "failed-clear invalid tombstone")
 require(JS, 'window.sessionStorage.setItem(DEMO_SESSION_STORAGE_KEY', "same-tab demo session storage")
 require(JS, 'profileName.textContent = username', "safe username rendering")
 require(JS, 'actorId: "mother"', "fixed responsibility fixture actor")
+require(JS, 'text: REMOTE_CARE_FIXTURE_TEXT', "fixed remote-care responsibility request body")
+require(JS, 'data-demo-card="meal-suggestion"', "local meal suggestion card")
+require(JS, 'data-demo-card="private-reflection"', "local private reflection card")
 require(JS, 'appShell.inert = true', "signed-out shell focus isolation")
-require(JS, 'window.location.reload()', "safe sign-out runtime reset")
+require(JS, 'dismissBrandIntro();', "signed-out opening dismissal")
 require(CSS, "@media (max-width: 520px)", "mobile breakpoint")
 require(CSS, "@media (prefers-reduced-motion: reduce)", "reduced-motion support")
 require(CSS, "translateY(-4px)", "reference-inspired card lift")
@@ -147,8 +158,15 @@ for removed_fragment in (
 if re.search(r'<input\b[^>]*\btype=["\']password["\']', HTML, flags=re.IGNORECASE):
     raise AssertionError("Hackathon username gate must not contain a password input")
 
-if 'username' in JS[JS.index('const requestResponsibilityAnalysis'):JS.index('const appendResponsibilitySuggestion')]:
+request_start = JS.index('const requestResponsibilityAnalysis')
+request_end = JS.index('const appendResponsibilitySuggestion')
+request_source = JS[request_start:request_end]
+if 'username' in request_source:
     raise AssertionError("Username must not enter the Responsibility API request")
+if 'REMOTE_CARE_FIXTURE_TEXT' not in request_source or 'text: REMOTE_CARE_FIXTURE_TEXT' not in request_source:
+    raise AssertionError("Responsibility request must use the fixed remote-care Fixture text")
+if re.search(r'\bprofileName\b|\bdemoUsername', request_source):
+    raise AssertionError("Username display code must not be referenced by the Responsibility request")
 
 for view_name in ("agent", "schedule", "people", "integrations"):
     navigation_items = re.findall(
