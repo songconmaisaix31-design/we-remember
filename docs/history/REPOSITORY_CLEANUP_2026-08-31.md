@@ -21,15 +21,15 @@ These commits and all local branches remain untouched. “Not on a remote ref”
 
 ## Retained original-root residuals
 
-The original root contained 671 untracked files totaling 133,830,146 bytes (about 133.8 MB / 127.6 MiB). They were classified without reading credential contents:
+The original root retained untracked local material in the following public-safe classes. These files are outside the cleanup branch and remain mutable; their file counts, byte totals, and category membership can drift after an audit and are therefore not recorded here as durable repository facts.
 
-| Class | Files | Bytes | Disposition |
-| --- | ---: | ---: | --- |
-| `tmp/` | 513 | 124,478,101 | Retained locally; not imported |
-| generated/output material | 4 | 5,472,849 | Retained locally; not imported |
-| `svg-transition/` prototypes and assets | 118 | 3,810,366 | Retained locally; not imported |
-| `robot-a3/` local material | 22 | 39,304 | Retained locally; not imported |
-| A3 simulator smoke material | 5 | 6,817 | Retained locally; not imported |
-| other small root materials | 9 | 22,709 | Retained locally; not imported |
+| Class | Disposition |
+| --- | --- |
+| `tmp/` | Retained locally; not imported |
+| generated/output material | Retained locally; not imported |
+| `svg-transition/` prototypes and assets | Retained locally; not imported |
+| `robot-a3/` local material | Retained locally; not imported |
+| A3 simulator smoke material | Retained locally; not imported |
+| other small root materials | Retained locally; not imported |
 
-No residual was deleted or automatically copied into the cleanup branch. No `.env` or credential content was read. Local robot, simulator, screenshot, and generated-asset evidence was not promoted into production claims.
+Any current inventory must be reproduced read-only against the original root at the time it is needed; it must not be inferred from this historical document. No residual was deleted or automatically copied into the cleanup branch. No `.env` or credential content was read. Local robot, simulator, screenshot, and generated-asset evidence was not promoted into production claims.
