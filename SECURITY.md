@@ -8,7 +8,7 @@ Security fixes target the current active development branch and the latest relea
 
 Do not disclose suspected vulnerabilities in a public issue. Use the repository's private GitHub security advisory flow:
 
-https://github.com/songconmaisaix31-design/New-gethe-point/security/advisories/new
+https://github.com/songconmaisaix31-design/we-remember/security/advisories/new
 
 Include the affected path, impact, minimal reproduction, and any safe remediation idea. Do not include real credentials, private family data, browser storage exports, tokens, or robot endpoints.
 
