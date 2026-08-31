@@ -1,10 +1,12 @@
 # New-gethe-point 项目交接
 
+> 历史快照：以下内容记录 2026-08-30 的特定工作树状态，不代表当前分支、启动方式或验收结果。
+
 更新时间：2026-08-30
 
 ## 1. 当前工作位置
 
-- 工作树：`C:\Users\DW\orca\workspaces\New-gethe-point\conversational-schedule-ux`
+- 工作树：历史 `conversational-schedule-ux` 工作树（本地位置不再作为事实来源）
 - 分支：`songconmaisaix31-design/conversational-schedule-ux`
 - 交接基线提交：`1f6ef02 Increase page container breathing room`
 - 分支状态：交接文档提交前领先远端 6 个提交；包含本交接文档后应领先 7 个提交，尚未推送
@@ -45,7 +47,7 @@
 - 路由切换时标题会接收程序化焦点，但不会显示多余的黑色焦点框。
 - `app/assets/brand/` 提供静态 Logo 和两套透明品牌 SVG 动画。侧栏固定使用 `we-remember-logo.svg`；进入或刷新网页时只播放一次 `mom-to-we-remember.svg` 全屏开幕动画，结束后移除开幕层并恢复滚动。减少动态效果时直接跳过。
 
-容器、材质、动效和响应式规则的详细清单见 [docs/container-motion-materials.md](docs/container-motion-materials.md)。
+容器、材质、动效和响应式规则的详细清单见 [docs/container-motion-materials.md](../container-motion-materials.md)。
 
 ## 5. 启动方式
 
@@ -103,16 +105,16 @@ npm test
 
 ## 7. 关键文件
 
-- [app/index.html](app/index.html)：四个页面、认证入口和连接中心结构。
-- [app/styles.css](app/styles.css)：视觉系统、容器、动效和响应式布局。
-- [app/app.js](app/app.js)：浏览器状态、Agent 草稿确认、日程和通知回执同步。
-- [PRD.md](PRD.md)：产品目标、范围和验收边界。
-- [Tech-Spec.md](Tech-Spec.md)：技术设计。
-- [API-CONTRACT.md](API-CONTRACT.md)：未来服务端接口边界。
-- [contracts/channel-gateway.openapi.yaml](contracts/channel-gateway.openapi.yaml)：自定义 Bot 网关事实来源。
-- [docs/integration-gateway.md](docs/integration-gateway.md)：渠道路由与安全边界。
-- [docs/cli-integration-runbook.md](docs/cli-integration-runbook.md)：本地渠道 CLI 检查流程。
-- [docs/robot-a3-integration.md](docs/robot-a3-integration.md)：A3 适配器和实机测试门禁。
+- [app/index.html](../../app/index.html)：四个页面、认证入口和连接中心结构。
+- [app/styles.css](../../app/styles.css)：视觉系统、容器、动效和响应式布局。
+- [app/app.js](../../app/app.js)：浏览器状态、Agent 草稿确认、日程和通知回执同步。
+- [PRD.md](../../PRD.md)：产品目标、范围和验收边界。
+- [Tech-Spec.md](../../Tech-Spec.md)：技术设计。
+- [API-CONTRACT.md](../../API-CONTRACT.md)：未来服务端接口边界。
+- [contracts/channel-gateway.openapi.yaml](../../contracts/channel-gateway.openapi.yaml)：自定义 Bot 网关事实来源。
+- [docs/integration-gateway.md](../integration-gateway.md)：渠道路由与安全边界。
+- [docs/cli-integration-runbook.md](../cli-integration-runbook.md)：本地渠道 CLI 检查流程。
+- [docs/robot-a3-integration.md](../robot-a3-integration.md)：A3 适配器和实机测试门禁。
 
 ## 8. Git 与未提交内容
 

@@ -1,5 +1,7 @@
 # P0 Responsibility Ownership and Handover Plan
 
+> Historical plan: implementation has moved beyond this track plan. Use the root `STATUS.md` and current tests for present evidence.
+
 ## Goal
 
 Implement the responsibility ownership and handover engine beside the existing We Remember conversational schedule prototype. The current hackathon batch freezes the frontend and proves behavior through public module APIs and executable tests.

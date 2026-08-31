@@ -1,5 +1,7 @@
 # Project Memory
 
+> Historical agent memory. This file preserves past decisions but is not current release, deployment, or acceptance evidence.
+
 ## Current State
 
 - As of 2026-08-29, the repository contains a dependency-free SVG/HTML motion asset bundle under `svg-transition/`; no application framework or package manager is established.
