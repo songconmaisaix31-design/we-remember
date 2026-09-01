@@ -5,9 +5,10 @@
 - **Status:** ACTIVE
 - **Competition:** SheNicest
 - **Result:** 未获奖
+- **Canonical repository:** `https://github.com/songconmaisaix31-design/we-remember`
 - **Cleanup baseline:** `pre-cleanup-2026-08-31` at `48f15ab40bb040f73483c638ab84dc79210698b9`
 
-We Remember remains an actively maintained family scheduling and care-responsibility prototype. The repository is not archived, renamed, released, or presented as a production service by this cleanup.
+We Remember remains an actively maintained family scheduling and care-responsibility prototype. The GitHub repository now uses the canonical `we-remember` name; this documentation update does not archive, release, deploy, or present it as a production service.
 
 ## What is runnable
 
@@ -31,7 +32,7 @@ The repository gate is:
 npm run ci
 ```
 
-On 2026-09-01 in the isolated cleanup worktree, `npm run ci` passed the application structural contract, 147 responsibility tests, robot TypeScript checking, 11 robot tests, and the golden demo. `npm run test:http` also passed 4 focused HTTP/API tests. These are repository-local results, not production or hardware evidence.
+On 2026-09-01 in this isolated canonical-link worktree, `npm run ci` passed the application structural contract, 147 responsibility tests, robot TypeScript checking, 11 robot tests, and the golden demo. `npm run test:http` also passed 4 focused HTTP/API tests. These are repository-local results, not production or hardware evidence.
 
 ## Evidence boundaries
 
@@ -51,4 +52,4 @@ Local simulation, screenshots, Fixture results, and generated assets are local e
 - The demo uses fictional Fixture data and memory-backed state; refreshes or requests may reconstruct state.
 - No database, durable outbox, external calendar, message provider, or production identity service is included.
 - The prototype supports bounded scheduling and responsibility handover; it cannot resolve every family conflict and is not medical or psychological care.
-- No credential use, deployment, release creation, repository rename, merge, or archive operation is part of this cleanup branch.
+- No credential access, deployment, release creation, additional repository rename, merge, or archive operation is part of this canonical-link branch.

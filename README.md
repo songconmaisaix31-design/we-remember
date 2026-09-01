@@ -16,8 +16,8 @@ We Remember 是一个面向家庭的日程与照护责任协作原型。它不�
 要求：Node.js 24+、npm 11+、Python 3.13+。
 
 ```powershell
-git clone https://github.com/songconmaisaix31-design/New-gethe-point.git
-cd New-gethe-point
+git clone https://github.com/songconmaisaix31-design/we-remember.git
+cd we-remember
 npm ci
 npm ci --prefix modules/robot
 npm run dev

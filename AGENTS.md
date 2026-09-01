@@ -1,6 +1,6 @@
 # Project Instructions
 
-- Project: New-gethe-point
+- Project: We Remember
 - Initialized: 2026-08-28
 - Technology stack: Static HTML/CSS/JavaScript, Node.js 24 ESM, TypeScript robot adapter, Python QA
 - Package manager: npm 11

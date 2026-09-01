@@ -11,6 +11,7 @@ This root file is the current governance memory for repository startup. The long
 
 ## Repository and evidence boundaries
 
+- The canonical GitHub repository is `https://github.com/songconmaisaix31-design/we-remember` (repository ID `1349688414`). The former `New-gethe-point` URL redirects to this same repository identity; use only the canonical name and URL in current operational references.
 - The repository root is the engineering entry point. Preserve the static HTML/CSS/JavaScript application, Node.js 24 ESM responsibility module, isolated TypeScript robot adapter, and Python QA stack.
 - Keep `app/`, `modules/responsibility/`, and `modules/robot/` as separate boundaries unless a demonstrated product requirement justifies a change.
 - The hackathon experience uses fictional Fixtures, preset scenarios, browser-local state, and Mock notification/channel displays.
@@ -38,5 +39,6 @@ npm run test:http
 
 - Other worktrees, local-only commits, dirty tracked documents, and untracked residuals belong to their existing owners unless explicitly assigned.
 - Audit those items read-only. Never automatically import uncommitted files, read `.env` or credential contents, reset another worktree, or delete unexplained residuals.
+- Secret material belongs only in untracked local `.env` files, operating-system credential stores, or deployment-provider settings. Repository memory may record those locations, never secret values.
 - Local `tmp/`, generated outputs, SVG prototypes, robot material, simulator artifacts, and screenshots are not production evidence and must not be promoted into product claims.
 - The public-safe residual classification is recorded in the [repository cleanup audit](docs/history/REPOSITORY_CLEANUP_2026-08-31.md); preserve the residuals themselves outside this cleanup branch.
